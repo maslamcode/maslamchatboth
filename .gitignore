@@ -1,0 +1,81 @@
+# Build Folders (bin, obj, etc.)
+bin/
+obj/
+out/
+Publish/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Azure Web App deployment
+.ftpconfig
+.publishsettings
+
+# Visual Studio temporary files
+.vscode/
+*.vs/
+.vs/
+*.swp
+
+# Rider files
+.idea/
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+packages/
+
+# VS Code files
+.vscode/
+
+# Debugging files
+*.log
+*.tsscache
+*.vspx
+*.generated.cs
+
+# File-based SQLite
+*.db
+*.db-journal
+
+# Entity Framework Core migrations
+*.designer.cs
+
+# npm package files
+node_modules/
+
+# Environment
+.env
+.env.*
+
+# macOS files
+.DS_Store
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Hidden files
+*.pyc
+*.pyo
+*.tmp
+
+# Coverage Reports
+coverage/
+*.coverage
+*.coveragexml
+*.coverageresults
+
+# IDE-specific configuration
+*.ideconfig
+*.tmproj
+*.diff
+.idea/
+/GeminiChatBot/session
