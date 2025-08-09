@@ -1,103 +1,136 @@
-const { makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys")
-const pino = require("pino")
-const { spawn } = require('child_process');
+﻿const {
+    makeWASocket,
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion,
+    DisconnectReason
+} = require("@whiskeysockets/baileys");
+const pino = require("pino");
+const { spawn } = require("child_process");
+const fs = require("fs");
+const qrcode = require("qrcode-terminal");
+const path = require("path");
+
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function connectToWhatsApp() {
-    const authState = await useMultiFileAuthState("session")
+    const { version } = await fetchLatestBaileysVersion();
+    const { state, saveCreds } = await useMultiFileAuthState("session");
+
     const socket = makeWASocket({
-        printQRInTerminal: true,
-        browser: ["windows", "chrome", "10"],
-        auth: authState.state,
-        logger: pino({ level: "silent" })
-    })
+        version,
+        auth: state,
+        printQRInTerminal: false, // deprecated
+        logger: pino({ level: "debug" }),
+        browser: ["Mac OS", "Safari", "16.0"],
+    });
 
+    socket.ev.on("creds.update", saveCreds);
 
-    socket.ev.on('creds.update', authState.saveCreds)
-    socket.ev.on('connection.update', ({ connection, qr }) => {
-        if (connection === 'open') {
-            console.log('Whatsapp  Active..')
-        } else if (connection === 'close') {
-            console.log('Whatsapp Closed..')
-            connectToWhatsApp()
-        } else if (connection === 'connecting') {
-            console.log('Whatsapp Connecting')
-        }
+    socket.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+        const now = new Date();
+
         if (qr) {
-
-            console.log('qr', qr)
+            console.log("🔳 QR code generated. Silakan scan:");
+            qrcode.generate(qr, { small: true });
         }
-    })
-    socket.ev.on('messages.upsert', async ({ messages }) => {
-		let nows = new Date();
-        try {
-			console.log('raw message',messages);
-            const message = messages[0];
-			const pesan = message.message.extendedTextMessage.text;
-            const phone = message.key.remoteJid;
-			const groupMetadata = await socket.groupMetadata(phone);
-            console.log(nows+' ' + "Group Name:", groupMetadata.subject);
-            const fromMe = message.key.fromMe;
-            console.log(nows+' ['+groupMetadata.subject+']' + 'From me:', fromMe);
-            console.log(nows+' ['+groupMetadata.subject+']' + 'phone me:', phone);
 
-            // Check if the message is from a group and not from the bot itself
-            if (!fromMe && phone.endsWith('@g.us')) {
-                // Define a tag to search for, such as "@bot" or "#tag"
-                const tag = '@6281235022976';  // Change this to your desired tag/mention
+        if (connection === "connecting") {
+            console.log(now + " 📡 WhatsApp Connecting...");
+        } else if (connection === "open") {
+            console.log(now + " ✅ WhatsApp Connected.");
+        } else if (connection === "close") {
+            const reason = lastDisconnect?.error?.output?.statusCode;
+            console.log(now + " ❌ WhatsApp Closed. Reason:", reason);
 
-                // Check if the message contains the tag
-                if (pesan && pesan.includes(tag)) {
-                    try {
-                        //const pesans = pesan.split('@')[0].trim();
-						const pesans = pesan.replace("@6281235022976", ""); // Remove @6281235022976 followed by a space
-						console.log(nows+' ['+groupMetadata.subject+']' + 'pesan WA:', pesans);
-                        // Send the message content to the C# backend and wait for the response
-                        const response = await sentToCSharp(pesans);
-                        const text = response;  // Handle the response data
-                        console.log(nows+' ['+groupMetadata.subject+']' + 'response AI:', text);
+            if (reason === DisconnectReason.loggedOut || reason === 405) {
+                console.log(now + " 🗑️ Session expired or 405 error. Deleting session...");
 
-                        // Send the response back to the group chat
-                         const sentMsg =await socket.sendMessage(phone, { text: text });
-						 //console.log("Message sent successfully:", sentMsg);
-
-                    } catch (error) {
-                        console.error(nows+' ['+groupMetadata.subject+']' + 'Error while processing C# response:', error);
-                    }
+                try {
+                    fs.rmSync("session", { recursive: true, force: true });
+                } catch (err) {
+                    console.error("Gagal menghapus session:", err);
                 }
+
+                const waitMinutes = Math.floor(Math.random() * 4) + 2; // 2-5 minutes
+                const waitMs = waitMinutes * 60 * 1000;
+
+                console.log(`⏱️ Menunggu ${waitMinutes} menit sebelum reconnect...`);
+                await delay(waitMs);
+
+                connectToWhatsApp();
+            } else {
+                console.log(now + " 🔄 Reconnecting in 5s...");
+                await delay(5000);
+                connectToWhatsApp();
             }
-        } catch (error) {
-            console.error(nows+' ' + 'Error while processing C# response:', error);
         }
     });
 
+    socket.ev.on("messages.upsert", async ({ messages }) => {
+        const now = new Date();
 
+        try {
+            const message = messages[0];
+            if (!message.message) return;
+
+            const pesan = message.message?.extendedTextMessage?.text || message.message?.conversation;
+            const phone = message.key.remoteJid;
+            const fromMe = message.key.fromMe;
+
+            if (!fromMe && phone.endsWith("@g.us")) {
+                const tag = "@6282260091545"; // ← Ganti sesuai nomormu
+                const tag2 = "@8603490619632";
+                if ((pesan && pesan.includes(tag)) || (pesan && pesan.includes(tag2))) {
+                    const cleanPesan = pesan.replace(tag, "").trim();
+                    console.log(now + " 📥 Pesan:", cleanPesan);
+
+                    const response = await sentToCSharp(cleanPesan);
+                    await socket.sendMessage(phone, { text: response });
+                }
+            } else {
+                console.log(now + " Pesan masuknya : ", pesan);
+            }
+
+        } catch (err) {
+            console.error(now + " ❌ Error while processing message:", err);
+        }
+    });
 }
-connectToWhatsApp()
 
-async function sentToCSharp(question) {
+async function sentToCSharp(text) {
     return new Promise((resolve, reject) => {
-        const csharpProcess = spawn('dotnet', ['GeminiChatBot.dll', "TeS", question]);
+        const process = spawn("dotnet", ["GeminiChatBot.dll", "TeS", text]);
 
-        let responseData = '';
+        let result = "";
 
-        // Collect data from the C# process stdout
-        csharpProcess.stdout.on('data', (data) => {
-            responseData += data.toString();
+        process.stdout.on("data", (data) => {
+            result += data.toString();
         });
 
-        // Handle errors from the C# process
-        csharpProcess.stderr.on('data', (data) => {
-            console.error('C# Error:', data.toString());
+        process.stderr.on("data", (data) => {
+            console.error("C# stderr:", data.toString());
         });
 
-        // When the C# process closes, resolve or reject the promise
-        csharpProcess.on('close', (code) => {
+        process.on("close", (code) => {
             if (code === 0) {
-                resolve(responseData);  // Resolve with the accumulated response
+                resolve(result.trim());
             } else {
                 reject(`C# process exited with code ${code}`);
             }
         });
     });
-
 }
+
+// 🟢 Start app
+(async () => {
+    try {
+        await connectToWhatsApp();
+    } catch (err) {
+        console.error("❌ Fatal error:", err);
+        console.log("🔁 Restarting in 10 seconds...");
+        await delay(10000);
+        connectToWhatsApp();
+    }
+})();
