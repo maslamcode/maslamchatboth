@@ -40,9 +40,9 @@ namespace GeminiChatBot
                     //   .Select(x => (x.tag_message ?? "").ToLower())
                     //   .ToListAsync());
                 }
-                catch
+                catch(Exception ex)
                 {
-
+                    throw new Exception(ex.Message);
                 }
 
                 var greetings = new List<string> { "hai", "halo", "salam", "asslamualaikum", "selamat pagi", "selamat siang", "selamat malam", "apa kabar" };
@@ -151,7 +151,7 @@ namespace GeminiChatBot
                     }
                     //respone += responseBody;
                     if (string.IsNullOrEmpty(respone))
-                        respone = "Sorry please ask again.";
+                        respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
                     Console.WriteLine(respone);
 
                     // Clean up the downloaded PDF
