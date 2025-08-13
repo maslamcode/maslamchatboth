@@ -1,18 +1,9 @@
 ﻿using PdfSharp.Pdf.IO;
 using PdfSharp.Pdf;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System.Net.Http;
-using static Google.Cloud.AIPlatform.V1.ReadFeatureValuesResponse.Types.EntityView.Types;
 using Microsoft.EntityFrameworkCore;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace GeminiChatBot
 {
@@ -40,7 +31,7 @@ namespace GeminiChatBot
                     //   .Select(x => (x.tag_message ?? "").ToLower())
                     //   .ToListAsync());
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     throw new Exception(ex.Message);
                 }
@@ -63,7 +54,7 @@ namespace GeminiChatBot
                 }
                 if (prompt.Contains("siapa") && (prompt.Contains("anda") || prompt.Contains("kamu")))
                 {
-                    
+
                     foreach (var messge in sayHai)
                     {
                         Console.WriteLine(messge);
@@ -71,6 +62,7 @@ namespace GeminiChatBot
                     }
                     return;
                 }
+
                 if (!isGreeting)
                 {
                     var respone = string.Empty;
@@ -80,11 +72,40 @@ namespace GeminiChatBot
                     string googleApiKey = configuration["Config:googleApiKey"];
 
                     // Combine PDFs in the folder
-                    string folderPath = AppContext.BaseDirectory;
-                    string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf");
-                    CombinePdfs(pdfFiles, outputPdf);
-                    string encodedPdf = Convert.ToBase64String(await File.ReadAllBytesAsync(outputPdf));
+                    string folderPath = Path.Combine(AppContext.BaseDirectory, "DataPDF");
 
+                    string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf").ToArray();
+
+                    var onlineSources = configuration.GetSection("DataGoogleDocsOnline").Get<string[]>();
+
+                    #region reading docs online
+                    foreach (var source in onlineSources)
+                    {
+                        string localTempFile = Path.GetTempFileName();
+
+                        using var httpClient = new HttpClient();
+                        string url = source;
+
+                        if (url.Contains("docs.google.com/document"))
+                        {
+                            var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
+                            if (match.Success)
+                            {
+                                string docId = match.Groups[1].Value;
+                                url = $"https://docs.google.com/document/d/{docId}/export?format=pdf";
+                            }
+                        }
+
+                        byte[] pdfData = await httpClient.GetByteArrayAsync(url);
+                        await File.WriteAllBytesAsync(localTempFile, pdfData);
+
+                        pdfFiles = pdfFiles.Concat(new[] { localTempFile }).ToArray();
+                    }
+                    #endregion end
+
+                    CombinePdfs(pdfFiles, outputPdf);
+
+                    string encodedPdf = Convert.ToBase64String(await File.ReadAllBytesAsync(outputPdf));
 
                     var payload = new
                     {
@@ -117,6 +138,8 @@ namespace GeminiChatBot
                         };
 
                         HttpResponseMessage response = await httpClient.SendAsync(request);
+
+                        Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
 
                         // Read and output the response
                         string responseBody = await response.Content.ReadAsStringAsync();
@@ -159,9 +182,9 @@ namespace GeminiChatBot
 
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
-                Console.WriteLine("err : "+ex.Message+", Sorry please ask again.");
+                Console.WriteLine("err : " + ex.Message + ", Sorry please ask again.");
             }
         }
 
@@ -188,5 +211,6 @@ namespace GeminiChatBot
                 outputDocument.Save(outputPdf);
             }
         }
-    }
+
+     }
 }
