@@ -4,13 +4,19 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Google.Cloud.AIPlatform.V1;
 
 namespace GeminiChatBot
 {
     public class ChatBothMessage
     {
+        private static string _cachedEncodedPdf = null;
+        private static DateTime _lastCacheTime;
+        private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(30);
         public static async Task sentMessage(string prompt)
         {
+            //create time response load
+            var startTime = DateTime.Now;
             try
             {
                 var configuration = new ConfigurationBuilder()
@@ -66,46 +72,10 @@ namespace GeminiChatBot
                 if (!isGreeting)
                 {
                     var respone = string.Empty;
-                    // Paths to PDF files
-                    string outputPdf = "combined_pdf.pdf";      // Path to the output PDF
                     string geminiVersion = configuration["Config:geminVersi"];
                     string googleApiKey = configuration["Config:googleApiKey"];
-
-                    // Combine PDFs in the folder
-                    string folderPath = Path.Combine(AppContext.BaseDirectory, "DataPDF");
-
-                    string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf").ToArray();
-
-                    var onlineSources = configuration.GetSection("DataGoogleDocsOnline").Get<string[]>();
-
-                    #region reading docs online
-                    foreach (var source in onlineSources)
-                    {
-                        string localTempFile = Path.GetTempFileName();
-
-                        using var httpClient = new HttpClient();
-                        string url = source;
-
-                        if (url.Contains("docs.google.com/document"))
-                        {
-                            var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
-                            if (match.Success)
-                            {
-                                string docId = match.Groups[1].Value;
-                                url = $"https://docs.google.com/document/d/{docId}/export?format=pdf";
-                            }
-                        }
-
-                        byte[] pdfData = await httpClient.GetByteArrayAsync(url);
-                        await File.WriteAllBytesAsync(localTempFile, pdfData);
-
-                        pdfFiles = pdfFiles.Concat(new[] { localTempFile }).ToArray();
-                    }
-                    #endregion end
-
-                    CombinePdfs(pdfFiles, outputPdf);
-
-                    string encodedPdf = Convert.ToBase64String(await File.ReadAllBytesAsync(outputPdf));
+                  
+                    string encodedPdf = await GetCombinedPdfBase64Async(configuration);
 
                     var payload = new
                     {
@@ -139,7 +109,7 @@ namespace GeminiChatBot
 
                         HttpResponseMessage response = await httpClient.SendAsync(request);
 
-                        Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
+                        //Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
 
                         // Read and output the response
                         string responseBody = await response.Content.ReadAsStringAsync();
@@ -177,9 +147,9 @@ namespace GeminiChatBot
                         respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
                     Console.WriteLine(respone);
 
-                    // Clean up the downloaded PDF
-                    File.Delete(outputPdf);
-
+                    var endTime = DateTime.Now;
+                    var elapsedTime = endTime - startTime;
+                    Console.WriteLine($"Waktu respons: {elapsedTime.TotalSeconds} detik");
                 }
             }
             catch (Exception ex)
@@ -212,5 +182,52 @@ namespace GeminiChatBot
             }
         }
 
-     }
+        private static async Task<string> GetCombinedPdfBase64Async(IConfiguration configuration)
+        {
+            // If cache is still valid, just return it
+            if (_cachedEncodedPdf != null && DateTime.UtcNow - _lastCacheTime < _cacheDuration)
+                return _cachedEncodedPdf;
+
+            string outputPdf = Path.Combine(Path.GetTempPath(), "combined_pdf.pdf");
+
+            // Local PDFs
+            string folderPath = Path.Combine(AppContext.BaseDirectory, "DataPDF");
+            string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf").ToArray();
+
+            // Online PDFs (Google Docs)
+            var onlineSources = configuration.GetSection("DataGoogleDocsOnline").Get<string[]>();
+            foreach (var source in onlineSources)
+            {
+                string localTempFile = Path.GetTempFileName();
+                using var httpClient = new HttpClient();
+                string url = source;
+
+                if (url.Contains("docs.google.com/document"))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
+                    if (match.Success)
+                    {
+                        string docId = match.Groups[1].Value;
+                        url = $"https://docs.google.com/document/d/{docId}/export?format=pdf";
+                    }
+                }
+
+                byte[] pdfData = await httpClient.GetByteArrayAsync(url);
+                await File.WriteAllBytesAsync(localTempFile, pdfData);
+
+                pdfFiles = pdfFiles.Concat(new[] { localTempFile }).ToArray();
+            }
+
+            CombinePdfs(pdfFiles, outputPdf);
+
+            _cachedEncodedPdf = Convert.ToBase64String(await File.ReadAllBytesAsync(outputPdf));
+            _lastCacheTime = DateTime.UtcNow;
+
+            File.Delete(outputPdf);
+
+            return _cachedEncodedPdf;
+        }
+
+
+    }
 }
