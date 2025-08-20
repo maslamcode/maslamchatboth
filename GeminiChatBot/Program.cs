@@ -13,16 +13,23 @@ class Program
     {
         try
         {
-            while (true)
+            if (args.Length > 0)
             {
-                Console.WriteLine("Masukkan prompt (ketik 'exit' untuk keluar):");
-                string prompt = Console.ReadLine() ?? "";
-
-                if (prompt.Equals("exit", StringComparison.OrdinalIgnoreCase))
-                    break;
-
+                string prompt = args[0];
                 await ChatBothMessage.sentMessage(prompt);
-                Console.WriteLine(); 
+            }
+            else {
+                while (true)
+                {
+                    Console.WriteLine("Masukkan prompt (ketik 'exit' untuk keluar):");
+                    string prompt = Console.ReadLine() ?? "";
+
+                    if (prompt.Equals("exit", StringComparison.OrdinalIgnoreCase))
+                        break;
+
+                    await ChatBothMessage.sentMessage(prompt);
+                    Console.WriteLine();
+                }
             }
         }
         catch (Exception ex)

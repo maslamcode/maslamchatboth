@@ -80,14 +80,28 @@ async function connectToWhatsApp() {
             const fromMe = message.key.fromMe;
 
             if (!fromMe && phone.endsWith("@g.us")) {
-                const tag = "@6282260091545"; // ← Ganti sesuai nomormu
+                const tag = "@6281360019090"; // ← Ganti sesuai nomormu
                 const tag2 = "@8603490619632";
+
+                //Please put phone on the console
+                console.log(now + " 📥 Pesan masuk dari grup:", pesan);
+
                 if ((pesan && pesan.includes(tag)) || (pesan && pesan.includes(tag2))) {
                     const cleanPesan = pesan.replace(tag, "").trim();
                     console.log(now + " 📥 Pesan:", cleanPesan);
 
-                    const response = await sentToCSharp(cleanPesan);
-                    await socket.sendMessage(phone, { text: response });
+                    try {
+                        console.log(now + " 📤 Mengirim pesan ke C#...");
+
+                        const response = await sentToCSharp(cleanPesan);
+                        await socket.sendMessage(phone, { text: response });
+
+                        console.log(now + " 📤 Pesan terkirim:", response);
+                    } catch (err) {
+                        console.error(now + " ❌ Error while processing message:", err);
+                        await socket.sendMessage(phone, { text: "Maaf, terjadi kesalahan saat memproses pesan." });
+                    }
+                   
                 }
             } else {
                 console.log(now + " Pesan masuknya : ", pesan);
@@ -101,7 +115,7 @@ async function connectToWhatsApp() {
 
 async function sentToCSharp(text) {
     return new Promise((resolve, reject) => {
-        const process = spawn("dotnet", ["GeminiChatBot.dll", "TeS", text]);
+        const process = spawn("dotnet", ["GeminiChatBot.dll", text]);
 
         let result = "";
 

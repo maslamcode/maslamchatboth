@@ -15,7 +15,6 @@ namespace GeminiChatBot
         private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(30);
         public static async Task sentMessage(string prompt)
         {
-            //create time response load
             var startTime = DateTime.Now;
             try
             {
@@ -28,9 +27,11 @@ namespace GeminiChatBot
                 var gretingRespone = new List<string>();
                 var sayHai = new List<string>();
                 var listTag = string.Empty;
+
+                MyDbContext context = null;
                 try
                 {
-                    var context = new MyDbContext(connectingString);
+                    context = new MyDbContext(connectingString);
                     gretingRespone = await context.ChatBothResponses.Where(x => x.type == 1).Select(x => x.tag_message).ToListAsync();
                     sayHai = await context.ChatBothResponses.Where(x => x.type == 2).OrderBy(x => x.order).Select(x => x.tag_message).ToListAsync();
                     //listTag = string.Join(", ", await context.ChatBoths
@@ -69,13 +70,57 @@ namespace GeminiChatBot
                     return;
                 }
 
+
+                //Console.WriteLine($"Waktu sebelum validation greeting: {(DateTime.Now - startTime).TotalSeconds} detik");
+
                 if (!isGreeting)
                 {
                     var respone = string.Empty;
                     string geminiVersion = configuration["Config:geminVersi"];
                     string googleApiKey = configuration["Config:googleApiKey"];
-                  
-                    string encodedPdf = await GetCombinedPdfBase64Async(configuration);
+
+                    //Console.WriteLine($"Waktu setelah combine/cache data: {(DateTime.Now - startTime).TotalSeconds} detik");
+                    string encodedStringData = string.Empty;
+
+                    var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
+                    bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
+
+                    Console.WriteLine($"Promt: {prompt}");
+
+                    if (isShalat)
+                    {
+                        string? kotaName = await ExtractKotaName(prompt, context);
+
+                        if (!string.IsNullOrEmpty(kotaName))
+                        {
+                            var dataShalat = await context.JadwalShalats.Include(js => js.Kota).Where(js => EF.Functions.ILike(js.Kota.Nama, $"%{kotaName}%")).ToListAsync();
+                            encodedStringData = string.Join(",\n", dataShalat.Select(js =>
+                                $"{js.Kota.Nama} {js.Tanggal} {js.Bulan} {js.Subuh} {js.Zuhur} {js.Asar} {js.Magrib} {js.Isya}"
+                            ));
+
+                            if (!string.IsNullOrEmpty(encodedStringData))
+                            {
+                                encodedStringData = Convert.ToBase64String(Encoding.UTF8.GetBytes(encodedStringData));
+                            }
+                            else
+                            {
+                                Console.WriteLine($"Maaf, saya tidak dapat menemukan jadwal shalat untuk kota {kotaName}. Silakan sebutkan nama kota yang lain.");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("Maaf, saya tidak dapat menemukan nama kota dalam pertanyaan Anda. Silakan sebutkan nama kota untuk mendapatkan jadwal shalat.");
+                            return;
+                        }
+
+                        Console.WriteLine("Jadwal Shalat untuk kota " + kotaName + ":");
+                    }
+                    else
+                    {
+                        encodedStringData = await GetCombinedPdfBase64Async(configuration);
+                    }
+
 
                     var payload = new
                     {
@@ -85,7 +130,7 @@ namespace GeminiChatBot
                         {
                             parts =  new object[]
                                 {
-                                    new { inline_data = new { mime_type = "application/pdf", data = encodedPdf } },
+                                    new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
                                     //new { text = prompt + @" (utamakan berdasarkan file pdf)
                                     //                         (jika pertanyaan tidak ada hubunganya dengan '"+listTag+@"', maka jawab dengan 'Kang SAMI tidak yakin dengan jawaban untuk pertanyaan tersebut.'. jika ditemukan, jawaban dimuali dengan 'menurut Kang SAMI ,')
                                     //                         (Jawab dengan Bahasa Indonesia)" }
@@ -98,6 +143,8 @@ namespace GeminiChatBot
                     string jsonPayload = JsonSerializer.Serialize(payload);
                     //Console.WriteLine   (jsonPayload);
                     // Send the POST request
+
+                    //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                     using (HttpClient httpClient = new HttpClient())
                     {
@@ -142,6 +189,7 @@ namespace GeminiChatBot
 
                         }
                     }
+
                     //respone += responseBody;
                     if (string.IsNullOrEmpty(respone))
                         respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
@@ -149,7 +197,7 @@ namespace GeminiChatBot
 
                     var endTime = DateTime.Now;
                     var elapsedTime = endTime - startTime;
-                    Console.WriteLine($"Waktu respons: {elapsedTime.TotalSeconds} detik");
+                    //Console.WriteLine($"Total respons: {elapsedTime.TotalSeconds} detik");
                 }
             }
             catch (Exception ex)
@@ -228,6 +276,22 @@ namespace GeminiChatBot
             return _cachedEncodedPdf;
         }
 
+
+
+        public static async Task<string?> ExtractKotaName(string prompt, MyDbContext context)
+        {
+            var kotalist = await context.Kotas.Select(k => k.Nama).ToListAsync();
+
+            foreach (var namakota in kotalist)
+            {
+                if (prompt.Contains(namakota, StringComparison.OrdinalIgnoreCase))
+                {
+                    return namakota;
+                }
+            }
+
+            return null;
+        }
 
     }
 }

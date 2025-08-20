@@ -38,10 +38,7 @@
     <None Update="DataPdf\Manual Guide - Financial - AR - AR Invoice.pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="Manual Guide - Financial - AR - AR Invoice.pdf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="_Manual Guide - Distribution - PO - Purchase Order %28Approval%29.pdf">
+    <None Update="DataPDF\_Manual Guide - Distribution - PO - Purchase Order (Approval).pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
