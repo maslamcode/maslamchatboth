@@ -71,6 +71,12 @@ namespace GeminiChatBot
                     return;
                 }
 
+                if(prompt.Length < 5)
+                {
+                    Console.WriteLine("Pertanyaan terlalu singkat, silakan ajukan pertanyaan yang lebih jelas.");
+                    return;
+                }
+
                 var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk blablabla, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)";
                 var partsData = Array.Empty<object>();
                 if (!isGreeting)
@@ -78,6 +84,7 @@ namespace GeminiChatBot
                     var respone = string.Empty;
                     string geminiVersion = configuration["Config:geminVersi"];
                     string googleApiKey = configuration["Config:googleApiKey"];
+                    //string dataLinkPromptSelection = configuration["DataLinkPromptSelection"];
 
                     //Console.WriteLine($"Waktu setelah combine/cache data: {(DateTime.Now - startTime).TotalSeconds} detik");
                     string encodedStringData = string.Empty;
@@ -92,9 +99,10 @@ namespace GeminiChatBot
                         if (!string.IsNullOrEmpty(kotaName))
                         {
                             var month = DateTime.Now.Month;
+                            var tahun = DateTime.Now.Year;
                             var dataShalat = await context.JadwalShalats.Include(js => js.Kota).Where(js => js.Bulan == month && EF.Functions.ILike(js.Kota.Nama, $"%{kotaName}%")).ToListAsync();
                             encodedStringData = string.Join("\n", dataShalat.Select(js =>
-                                $"Tanggal: {js.Tanggal}/{js.Bulan}, Subuh: {js.Subuh}, Dzuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
+                                $"Tanggal: {js.Tanggal}/{js.Bulan}/{tahun}, Subuh: {js.Subuh}, Dzuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
                             ));
 
                             if (string.IsNullOrEmpty(encodedStringData)) 
@@ -103,7 +111,7 @@ namespace GeminiChatBot
                                 return;
                             }
 
-                            promptData = $"Jadwal shalat untuk kota {kotaName}:\n{encodedStringData}\n\nPertanyaan: {prompt}";
+                            promptData = $"Jadwal shalat untuk kota {kotaName}:\n{encodedStringData}\n\nPertanyaan: {prompt} - Jika pertanyaan mengandung hari ini, besok, kemarin, tolong filter data berdasarkan tanggal tersebut, dan munculkan hanya data itu";
 
                             partsData = new[]{
                                             new { text = $"{promptData}\n\n{provision}" }
@@ -125,8 +133,8 @@ namespace GeminiChatBot
                         };
                     }
 
-                    Console.WriteLine(promptData);
-
+                    //Console.WriteLine(promptData);
+                     
                     var payload = new
                     {
                         contents = new[]
