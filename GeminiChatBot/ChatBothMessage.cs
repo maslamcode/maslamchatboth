@@ -27,6 +27,7 @@ namespace GeminiChatBot
                 var gretingRespone = new List<string>();
                 var sayHai = new List<string>();
                 var listTag = string.Empty;
+                var promptData = string.Empty;
 
                 MyDbContext context = null;
                 try
@@ -85,28 +86,25 @@ namespace GeminiChatBot
                     var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
                     bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
 
-                    Console.WriteLine($"Promt: {prompt}");
-
                     if (isShalat)
                     {
                         string? kotaName = await ExtractKotaName(prompt, context);
 
                         if (!string.IsNullOrEmpty(kotaName))
                         {
-                            var dataShalat = await context.JadwalShalats.Include(js => js.Kota).Where(js => EF.Functions.ILike(js.Kota.Nama, $"%{kotaName}%")).ToListAsync();
-                            encodedStringData = string.Join(",\n", dataShalat.Select(js =>
-                                $"{js.Kota.Nama} {js.Tanggal} {js.Bulan} {js.Subuh} {js.Zuhur} {js.Asar} {js.Magrib} {js.Isya}"
+                            var month = DateTime.Now.Month;
+                            var dataShalat = await context.JadwalShalats.Include(js => js.Kota).Where(js => js.Bulan == month && EF.Functions.ILike(js.Kota.Nama, $"%{kotaName}%")).ToListAsync();
+                            encodedStringData = string.Join("\n", dataShalat.Select(js =>
+                                $"{js.Kota.Nama}, Tanggal: {js.Tanggal}/{js.Bulan}, Subuh: {js.Subuh}, Zuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
                             ));
 
-                            if (!string.IsNullOrEmpty(encodedStringData))
-                            {
-                                encodedStringData = Convert.ToBase64String(Encoding.UTF8.GetBytes(encodedStringData));
-                            }
-                            else
-                            {
+                            if (string.IsNullOrEmpty(encodedStringData)) 
+                            { 
                                 Console.WriteLine($"Maaf, saya tidak dapat menemukan jadwal shalat untuk kota {kotaName}. Silakan sebutkan nama kota yang lain.");
                                 return;
                             }
+
+                            promptData = $"Jadwal shalat untuk kota {kotaName}:\n{encodedStringData}\n\nPertanyaan: {prompt}";
                         }
                         else
                         {
@@ -114,7 +112,6 @@ namespace GeminiChatBot
                             return;
                         }
 
-                        Console.WriteLine("Jadwal Shalat untuk kota " + kotaName + ":");
                     }
                     else
                     {
@@ -122,24 +119,41 @@ namespace GeminiChatBot
                     }
 
 
+                    //var payload = new
+                    //{
+                    //    contents = new[]
+                    //    {
+                    //        new
+                    //        {
+                    //            parts =  new object[]
+                    //                {
+                    //                    new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
+                    //                    //new { text = prompt + @" (utamakan berdasarkan file pdf)
+                    //                    //                         (jika pertanyaan tidak ada hubunganya dengan '"+listTag+@"', maka jawab dengan 'Kang SAMI tidak yakin dengan jawaban untuk pertanyaan tersebut.'. jika ditemukan, jawaban dimuali dengan 'menurut Kang SAMI ,')
+                    //                    //                         (Jawab dengan Bahasa Indonesia)" }
+                    //                    new { text = prompt + @" (utamakan berdasarkan file pdf , tidak perlu menjawab 'berdasarkan file PDF yang Anda berikan', jika tidak ditemukan baru jawab dengan 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.')
+                    //                    (Jawab dengan Bahasa Indonesia)" }
+                    //                }
+                    //        }
+                    //    }
+                    //};
+
+                    Console.WriteLine(promptData);
+
                     var payload = new
                     {
                         contents = new[]
                         {
-                        new
-                        {
-                            parts =  new object[]
+                            new
+                            {
+                                parts = new[]
                                 {
-                                    new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
-                                    //new { text = prompt + @" (utamakan berdasarkan file pdf)
-                                    //                         (jika pertanyaan tidak ada hubunganya dengan '"+listTag+@"', maka jawab dengan 'Kang SAMI tidak yakin dengan jawaban untuk pertanyaan tersebut.'. jika ditemukan, jawaban dimuali dengan 'menurut Kang SAMI ,')
-                                    //                         (Jawab dengan Bahasa Indonesia)" }
-                                    new { text = prompt + @" (utamakan berdasarkan file pdf , tidak perlu menjawab 'berdasarkan file PDF yang Anda berikan', jika tidak ditemukan baru jawab dengan 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.')
-                                    (Jawab dengan Bahasa Indonesia)" }
+                                    new { text = $"{promptData}\n\nKetentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk blablabla, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)" }
                                 }
+                            }
                         }
-                    }
                     };
+
                     string jsonPayload = JsonSerializer.Serialize(payload);
                     //Console.WriteLine   (jsonPayload);
                     // Send the POST request
@@ -284,7 +298,9 @@ namespace GeminiChatBot
 
             foreach (var namakota in kotalist)
             {
-                if (prompt.Contains(namakota, StringComparison.OrdinalIgnoreCase))
+                var overrideNamaKota = namakota.Replace("Kota", string.Empty).Replace("Kabupaten", string.Empty).TrimStart();
+
+                if (prompt.Contains(overrideNamaKota, StringComparison.OrdinalIgnoreCase))
                 {
                     return namakota;
                 }
