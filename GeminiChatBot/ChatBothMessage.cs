@@ -71,9 +71,8 @@ namespace GeminiChatBot
                     return;
                 }
 
-
-                //Console.WriteLine($"Waktu sebelum validation greeting: {(DateTime.Now - startTime).TotalSeconds} detik");
-
+                var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk blablabla, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)";
+                var partsData = Array.Empty<object>();
                 if (!isGreeting)
                 {
                     var respone = string.Empty;
@@ -95,7 +94,7 @@ namespace GeminiChatBot
                             var month = DateTime.Now.Month;
                             var dataShalat = await context.JadwalShalats.Include(js => js.Kota).Where(js => js.Bulan == month && EF.Functions.ILike(js.Kota.Nama, $"%{kotaName}%")).ToListAsync();
                             encodedStringData = string.Join("\n", dataShalat.Select(js =>
-                                $"{js.Kota.Nama}, Tanggal: {js.Tanggal}/{js.Bulan}, Subuh: {js.Subuh}, Zuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
+                                $"Tanggal: {js.Tanggal}/{js.Bulan}, Subuh: {js.Subuh}, Dzuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
                             ));
 
                             if (string.IsNullOrEmpty(encodedStringData)) 
@@ -105,6 +104,10 @@ namespace GeminiChatBot
                             }
 
                             promptData = $"Jadwal shalat untuk kota {kotaName}:\n{encodedStringData}\n\nPertanyaan: {prompt}";
+
+                            partsData = new[]{
+                                            new { text = $"{promptData}\n\n{provision}" }
+                                        };
                         }
                         else
                         {
@@ -116,27 +119,11 @@ namespace GeminiChatBot
                     else
                     {
                         encodedStringData = await GetCombinedPdfBase64Async(configuration);
+                        partsData = new object[]{
+                                        new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
+                                        new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
+                        };
                     }
-
-
-                    //var payload = new
-                    //{
-                    //    contents = new[]
-                    //    {
-                    //        new
-                    //        {
-                    //            parts =  new object[]
-                    //                {
-                    //                    new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
-                    //                    //new { text = prompt + @" (utamakan berdasarkan file pdf)
-                    //                    //                         (jika pertanyaan tidak ada hubunganya dengan '"+listTag+@"', maka jawab dengan 'Kang SAMI tidak yakin dengan jawaban untuk pertanyaan tersebut.'. jika ditemukan, jawaban dimuali dengan 'menurut Kang SAMI ,')
-                    //                    //                         (Jawab dengan Bahasa Indonesia)" }
-                    //                    new { text = prompt + @" (utamakan berdasarkan file pdf , tidak perlu menjawab 'berdasarkan file PDF yang Anda berikan', jika tidak ditemukan baru jawab dengan 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.')
-                    //                    (Jawab dengan Bahasa Indonesia)" }
-                    //                }
-                    //        }
-                    //    }
-                    //};
 
                     Console.WriteLine(promptData);
 
@@ -146,10 +133,7 @@ namespace GeminiChatBot
                         {
                             new
                             {
-                                parts = new[]
-                                {
-                                    new { text = $"{promptData}\n\nKetentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk blablabla, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)" }
-                                }
+                                parts = partsData
                             }
                         }
                     };
