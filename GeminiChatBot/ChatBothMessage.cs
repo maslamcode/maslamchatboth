@@ -71,20 +71,21 @@ namespace GeminiChatBot
                     return;
                 }
 
-                if(prompt.Length < 5)
+                if (prompt.Length < 5)
                 {
                     Console.WriteLine("Pertanyaan terlalu singkat, silakan ajukan pertanyaan yang lebih jelas.");
                     return;
                 }
 
-                var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk blablabla, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)";
+                var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk data tersebut, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)";
                 var partsData = Array.Empty<object>();
                 if (!isGreeting)
                 {
                     var respone = string.Empty;
                     string geminiVersion = configuration["Config:geminVersi"];
                     string googleApiKey = configuration["Config:googleApiKey"];
-                    //string dataLinkPromptSelection = configuration["DataLinkPromptSelection"];
+                    var selections = configuration.GetSection("DataLinkPromptSelection").Get<List<DataLinkPromptSelection>>();
+                    var matchedDataLinks = new List<string>();
 
                     //Console.WriteLine($"Waktu setelah combine/cache data: {(DateTime.Now - startTime).TotalSeconds} detik");
                     string encodedStringData = string.Empty;
@@ -105,17 +106,15 @@ namespace GeminiChatBot
                                 $"Tanggal: {js.Tanggal}/{js.Bulan}/{tahun}, Subuh: {js.Subuh}, Dzuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
                             ));
 
-                            if (string.IsNullOrEmpty(encodedStringData)) 
-                            { 
+                            if (string.IsNullOrEmpty(encodedStringData))
+                            {
                                 Console.WriteLine($"Maaf, saya tidak dapat menemukan jadwal shalat untuk kota {kotaName}. Silakan sebutkan nama kota yang lain.");
                                 return;
                             }
 
                             promptData = $"Jadwal shalat untuk kota {kotaName}:\n{encodedStringData}\n\nPertanyaan: {prompt} - Jika pertanyaan mengandung hari ini, besok, kemarin, tolong filter data berdasarkan tanggal tersebut, dan munculkan hanya data itu";
 
-                            partsData = new[]{
-                                            new { text = $"{promptData}\n\n{provision}" }
-                                        };
+                            partsData = new[] { new { text = $"{promptData}\n\n{provision}" } };
                         }
                         else
                         {
@@ -126,15 +125,54 @@ namespace GeminiChatBot
                     }
                     else
                     {
+                        foreach (var selection in selections)
+                        {
+                            var keywords = selection.PromptWords
+                                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                            if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                            {
+                                if (!matchedDataLinks.Contains(selection.Link))
+                                    matchedDataLinks.Add(selection.Link);
+                            }
+                        }
+                    }
+
+
+                    //Read to PDF Files if not matched some data shalat or link docs
+                    if ((matchedDataLinks == null || !matchedDataLinks.Any()) && !isShalat)
+                    {
                         encodedStringData = await GetCombinedPdfBase64Async(configuration);
                         partsData = new object[]{
                                         new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
                                         new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
                         };
                     }
+                    else
+                    {
+                        if(matchedDataLinks == null || matchedDataLinks.Count == 0)
+                        {
+                            Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
+                            return;
+                        }
 
-                    //Console.WriteLine(promptData);
-                     
+                        var googleContents = string.Empty;
+                        foreach (var item in matchedDataLinks)
+                        {
+                            var googleContent = await GetGoogleDocContentAsync(item);
+
+                            googleContents += "\n\n" + googleContent;
+                        }
+
+                        partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
+
+                    }
+
+
+                    //partsData = new[] { new { text = "https://www.youtube.com/watch?v=foM_73K7DW0 buatkan ringkasan tanpa menit" } };
+
+                    //Console.WriteLine($"PartsData: {partsData[0]}");
+
                     var payload = new
                     {
                         contents = new[]
@@ -282,6 +320,106 @@ namespace GeminiChatBot
             return _cachedEncodedPdf;
         }
 
+        public static async Task<string> GetGoogleDocContentAsync(string googleLink)
+        {
+            using var httpClient = new HttpClient();
+            string url = googleLink;
+
+            if (url.Contains("docs.google.com/document"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
+                if (!match.Success)
+                    throw new ArgumentException("Invalid Google Docs link");
+
+                string docId = match.Groups[1].Value;
+
+                url = $"https://docs.google.com/document/d/{docId}/export?format=txt";
+
+                return await httpClient.GetStringAsync(url);
+            }
+            else if (url.Contains("docs.google.com/spreadsheets"))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
+                if (!match.Success)
+                    throw new ArgumentException("Invalid Google Sheets link");
+
+                string sheetId = match.Groups[1].Value;
+
+                url = $"https://docs.google.com/spreadsheets/d/{sheetId}/export?format=csv";
+
+                return await httpClient.GetStringAsync(url);
+            }
+            else
+            {
+                throw new ArgumentException("Unsupported Google link. Must be Docs or Sheets.");
+            }
+        }
+
+        //public static async Task<string> GetGoogleDocContentAsync(string googleLink, string googleApiKey = null)
+        //{
+        //    using var httpClient = new HttpClient();
+        //    string url = googleLink;
+
+        //    // --- Google Docs ---
+        //    if (url.Contains("docs.google.com/document"))
+        //    {
+        //        var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
+        //        if (!match.Success)
+        //            throw new ArgumentException("Invalid Google Docs link");
+
+        //        string docId = match.Groups[1].Value;
+
+        //        url = $"https://docs.google.com/document/d/{docId}/export?format=txt";
+        //        return await httpClient.GetStringAsync(url);
+        //    }
+
+        //    // --- Google Sheets ---
+        //    else if (url.Contains("docs.google.com/spreadsheets"))
+        //    {
+        //        var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
+        //        if (!match.Success)
+        //            throw new ArgumentException("Invalid Google Sheets link");
+
+        //        string sheetId = match.Groups[1].Value;
+
+        //        if (string.IsNullOrEmpty(googleApiKey))
+        //        {
+        //            url = $"https://docs.google.com/spreadsheets/d/{sheetId}/export?format=csv";
+        //            return await httpClient.GetStringAsync(url);
+        //        }
+
+        //        string metaUrl = $"https://sheets.googleapis.com/v4/spreadsheets/{sheetId}?key={googleApiKey}";
+        //        string metaJson = await httpClient.GetStringAsync(metaUrl);
+
+        //        using var doc = JsonDocument.Parse(metaJson);
+        //        if (!doc.RootElement.TryGetProperty("sheets", out JsonElement sheets))
+        //            throw new Exception("No sheets found in this spreadsheet.");
+
+        //        var allContent = new StringBuilder();
+
+        //        foreach (var sheet in sheets.EnumerateArray())
+        //        {
+        //            string title = sheet.GetProperty("properties").GetProperty("title").GetString();
+        //            string gid = sheet.GetProperty("properties").GetProperty("sheetId").GetRawText();
+
+        //            string csvUrl = $"https://docs.google.com/spreadsheets/d/{sheetId}/export?format=csv&gid={gid}";
+        //            string csvContent = await httpClient.GetStringAsync(csvUrl);
+
+        //            allContent.AppendLine($"--- Sheet: {title} ---");
+        //            allContent.AppendLine(csvContent);
+        //            allContent.AppendLine();
+        //        }
+
+        //        return allContent.ToString();
+        //    }
+
+        //    else
+        //    {
+        //        throw new ArgumentException("Unsupported Google link. Must be Docs or Sheets.");
+        //    }
+        //}
+
+
 
 
         public static async Task<string?> ExtractKotaName(string prompt, MyDbContext context)
@@ -299,6 +437,12 @@ namespace GeminiChatBot
             }
 
             return null;
+        }
+
+        public class DataLinkPromptSelection
+        {
+            public string PromptWords { get; set; }
+            public string Link { get; set; }
         }
 
     }
