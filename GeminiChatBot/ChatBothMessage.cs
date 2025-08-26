@@ -92,29 +92,17 @@ namespace GeminiChatBot
 
                     var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
                     bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
-
+                    var kotaName = string.Empty;
                     if (isShalat)
                     {
-                        string? kotaName = await ExtractKotaName(prompt, context);
+                        kotaName = await ExtractKotaName(prompt, context);
 
                         if (!string.IsNullOrEmpty(kotaName))
                         {
-                            var month = DateTime.Now.Month;
-                            var tahun = DateTime.Now.Year;
-                            var dataShalat = await context.JadwalShalats.Include(js => js.Kota).Where(js => js.Bulan == month && EF.Functions.ILike(js.Kota.Nama, $"%{kotaName}%")).ToListAsync();
-                            encodedStringData = string.Join("\n", dataShalat.Select(js =>
-                                $"Tanggal: {js.Tanggal}/{js.Bulan}/{tahun}, Subuh: {js.Subuh}, Dzuhur: {js.Zuhur}, Asar: {js.Asar}, Magrib: {js.Magrib}, Isya: {js.Isya}"
-                            ));
+                            var date = DateTime.Now;
+                           
+                            provision += $" Jika pertanyaan mengenai jadwal shalat tolong jawab dan filter data berdasarkan nama kota, tanggal dan bulan, dan hanya menyediakan jawaban untuk bulan saat ini, semisal menanyakan hari ini, kemarin, besok itu masih bisa, yang terpenting tidak lebih dari 30 hari atau 1 bulan kedepan. Date sekarang: {date.ToString("dd/MM/yyyy")}. Jika tidak menemukan jawaban, tolong jangan infokan bahwa anda memiliki data propinsi, kota, dan lain lain.";
 
-                            if (string.IsNullOrEmpty(encodedStringData))
-                            {
-                                Console.WriteLine($"Maaf, saya tidak dapat menemukan jadwal shalat untuk kota {kotaName}. Silakan sebutkan nama kota yang lain.");
-                                return;
-                            }
-
-                            promptData = $"Jadwal shalat untuk kota {kotaName}:\n{encodedStringData}\n\nPertanyaan: {prompt} - Jika pertanyaan mengandung hari ini, besok, kemarin, tolong filter data berdasarkan tanggal tersebut, dan munculkan hanya data itu";
-
-                            partsData = new[] { new { text = $"{promptData}\n\n{provision}" } };
                         }
                         else
                         {
@@ -123,24 +111,22 @@ namespace GeminiChatBot
                         }
 
                     }
-                    else
-                    {
-                        foreach (var selection in selections)
-                        {
-                            var keywords = selection.PromptWords
-                                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                            if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
-                            {
-                                if (!matchedDataLinks.Contains(selection.Link))
-                                    matchedDataLinks.Add(selection.Link);
-                            }
+                    foreach (var selection in selections)
+                    {
+                        var keywords = selection.PromptWords
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                        if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            if (!matchedDataLinks.Contains(selection.Link))
+                                matchedDataLinks.Add(selection.Link);
                         }
                     }
 
 
                     //Read to PDF Files if not matched some data shalat or link docs
-                    if ((matchedDataLinks == null || !matchedDataLinks.Any()) && !isShalat)
+                    if ((matchedDataLinks == null || !matchedDataLinks.Any()))
                     {
                         encodedStringData = await GetCombinedPdfBase64Async(configuration);
                         partsData = new object[]{
@@ -150,7 +136,7 @@ namespace GeminiChatBot
                     }
                     else
                     {
-                        if(matchedDataLinks == null || matchedDataLinks.Count == 0)
+                        if (matchedDataLinks == null || matchedDataLinks.Count == 0)
                         {
                             Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
                             return;
@@ -159,7 +145,7 @@ namespace GeminiChatBot
                         var googleContents = string.Empty;
                         foreach (var item in matchedDataLinks)
                         {
-                            var googleContent = await GetGoogleDocContentAsync(item);
+                            var googleContent = await GetGoogleDocContentAsync(item, kotaName);
 
                             googleContents += "\n\n" + googleContent;
                         }
@@ -167,9 +153,6 @@ namespace GeminiChatBot
                         partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
 
                     }
-
-
-                    //partsData = new[] { new { text = "https://www.youtube.com/watch?v=foM_73K7DW0 buatkan ringkasan tanpa menit" } };
 
                     //Console.WriteLine($"PartsData: {partsData[0]}");
 
@@ -320,7 +303,7 @@ namespace GeminiChatBot
             return _cachedEncodedPdf;
         }
 
-        public static async Task<string> GetGoogleDocContentAsync(string googleLink)
+        public static async Task<string> GetGoogleDocContentAsync(string googleLink, string kotaName = null)
         {
             using var httpClient = new HttpClient();
             string url = googleLink;
@@ -344,10 +327,40 @@ namespace GeminiChatBot
                     throw new ArgumentException("Invalid Google Sheets link");
 
                 string sheetId = match.Groups[1].Value;
-
                 url = $"https://docs.google.com/spreadsheets/d/{sheetId}/export?format=csv";
 
-                return await httpClient.GetStringAsync(url);
+                var csvContent = await httpClient.GetStringAsync(url);
+
+                if (string.IsNullOrEmpty(kotaName)) 
+                    return csvContent;
+
+                int month = DateTime.Now.Month;
+
+                var lines = csvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length <= 1)
+                    return csvContent;
+
+                var header = lines[0].Split(',');
+                var resultLines = new List<string> { string.Join(',', header) };
+
+                int kotaIndex = Array.FindIndex(header, h => h.Equals("kota", StringComparison.OrdinalIgnoreCase));
+                int bulanIndex = Array.FindIndex(header, h => h.Equals("bulan", StringComparison.OrdinalIgnoreCase));
+
+                foreach (var line in lines.Skip(1))
+                {
+                    var cols = line.Split(',');
+                    if (cols.Length != header.Length) continue;
+
+                    bool matchKota = string.IsNullOrEmpty(kotaName) || cols[kotaIndex].Contains(kotaName, StringComparison.OrdinalIgnoreCase);
+                    bool matchBulan = month == null || cols[bulanIndex].Trim() == month.ToString();
+
+                    if (matchKota && matchBulan)
+                    {
+                        resultLines.Add(line);
+                    }
+                }
+
+                return string.Join('\n', resultLines);
             }
             else
             {
