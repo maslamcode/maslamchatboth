@@ -441,7 +441,7 @@ namespace GeminiChatBot
 
             foreach (var namakota in kotalist)
             {
-                var overrideNamaKota = namakota.Replace("Kota", string.Empty).Replace("Kabupaten", string.Empty).TrimStart();
+                var overrideNamaKota = namakota;
 
                 if (prompt.Contains(overrideNamaKota, StringComparison.OrdinalIgnoreCase))
                 {
