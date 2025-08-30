@@ -1,0 +1,16 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace GeminiChatBot.Services
+{
+    public interface IChatBotService
+    {
+        Task<string> HandlePromptGreetingsAsync(string prompt);
+        Task<IEnumerable<string>> GetMatchedDataLinksAsync(string prompt);
+
+
+    }
+}

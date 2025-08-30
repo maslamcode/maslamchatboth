@@ -5,6 +5,8 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Google.Cloud.AIPlatform.V1;
+using GeminiChatBot.Services;
+using GeminiChatBot.Helper;
 
 namespace GeminiChatBot
 {
@@ -13,219 +15,177 @@ namespace GeminiChatBot
         private static string _cachedEncodedPdf = null;
         private static DateTime _lastCacheTime;
         private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(30);
+
+        private static IChatBotService _chatBotService;
+        private static IConfiguration _configuration;
+        static ChatBothMessage()
+        {
+            _configuration = new ConfigurationBuilder()
+                .SetBasePath(Directory.GetCurrentDirectory())
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
+            _chatBotService = new ChatBotService(_configuration);
+        }
+
         public static async Task sentMessage(string prompt)
         {
             var startTime = DateTime.Now;
             try
             {
-                var configuration = new ConfigurationBuilder()
-                      .SetBasePath(Directory.GetCurrentDirectory())
-                      .AddJsonFile("appsettings.json", false, true)
-                      .Build();
-
-                var connectingString = configuration.GetConnectionString("PostgreSqlConnection");
-                var gretingRespone = new List<string>();
-                var sayHai = new List<string>();
                 var listTag = string.Empty;
                 var promptData = string.Empty;
 
                 MyDbContext context = null;
-                try
+                var responseGreetings = await _chatBotService.HandlePromptGreetingsAsync(prompt);
+                if (!string.IsNullOrEmpty(responseGreetings))
                 {
-                    context = new MyDbContext(connectingString);
-                    gretingRespone = await context.ChatBothResponses.Where(x => x.type == 1).Select(x => x.tag_message).ToListAsync();
-                    sayHai = await context.ChatBothResponses.Where(x => x.type == 2).OrderBy(x => x.order).Select(x => x.tag_message).ToListAsync();
-                    //listTag = string.Join(", ", await context.ChatBoths
-                    //   .Select(x => (x.tag_message ?? "").ToLower())
-                    //   .ToListAsync());
-                }
-                catch (Exception ex)
-                {
-                    throw new Exception(ex.Message);
-                }
-
-                var greetings = new List<string> { "hai", "halo", "salam", "asslamualaikum", "selamat pagi", "selamat siang", "selamat malam", "apa kabar" };
-                var who = new List<string> { "siapa", "anda" };
-
-                // Periksa apakah input termasuk sapaan
-                bool isGreeting = greetings.Any(greeting => prompt.Contains(greeting, StringComparison.OrdinalIgnoreCase));
-                if (isGreeting)
-                {
-                    if (prompt.Contains("salam") || prompt.Contains("asslamualaikum"))
-                        Console.WriteLine("wa'alaykumsalam wr wb");
-                    foreach (var messge in gretingRespone)
-                    {
-                        Console.WriteLine(messge);
-                        Console.WriteLine("");
-                    }
-                    return;
-                }
-                if (prompt.Contains("siapa") && (prompt.Contains("anda") || prompt.Contains("kamu")))
-                {
-
-                    foreach (var messge in sayHai)
-                    {
-                        Console.WriteLine(messge);
-                        Console.WriteLine("");
-                    }
+                    Console.WriteLine(responseGreetings);
                     return;
                 }
 
-                if (prompt.Length < 5)
-                {
-                    Console.WriteLine("Pertanyaan terlalu singkat, silakan ajukan pertanyaan yang lebih jelas.");
-                    return;
-                }
+                string geminiVersion = _configuration["Config:geminVersi"];
+                string googleApiKey = _configuration["Config:googleApiKey"];
 
                 var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk data tersebut, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)";
                 var partsData = Array.Empty<object>();
-                if (!isGreeting)
+                var respone = string.Empty;
+
+                Console.WriteLine($"Waktu setelah greetings: {(DateTime.Now - startTime).TotalSeconds} detik");
+                string encodedStringData = string.Empty;
+
+                var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
+                bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
+                var kotaName = string.Empty;
+                if (isShalat)
                 {
-                    var respone = string.Empty;
-                    string geminiVersion = configuration["Config:geminVersi"];
-                    string googleApiKey = configuration["Config:googleApiKey"];
-                    var selections = configuration.GetSection("DataLinkPromptSelection").Get<List<DataLinkPromptSelection>>();
-                    var matchedDataLinks = new List<string>();
+                    kotaName = await ExtractKotaName(prompt, context);
 
-                    //Console.WriteLine($"Waktu setelah combine/cache data: {(DateTime.Now - startTime).TotalSeconds} detik");
-                    string encodedStringData = string.Empty;
-
-                    var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
-                    bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
-                    var kotaName = string.Empty;
-                    if (isShalat)
+                    if (!string.IsNullOrEmpty(kotaName))
                     {
-                        kotaName = await ExtractKotaName(prompt, context);
+                        var date = DateTime.Now;
 
-                        if (!string.IsNullOrEmpty(kotaName))
-                        {
-                            var date = DateTime.Now;
-                           
-                            provision += $" Jika pertanyaan mengenai jadwal shalat tolong jawab dan filter data berdasarkan nama kota, tanggal dan bulan, dan hanya menyediakan jawaban untuk bulan saat ini, semisal menanyakan hari ini, kemarin, besok itu masih bisa, yang terpenting tidak lebih dari 30 hari atau 1 bulan kedepan. Date sekarang: {date.ToString("dd/MM/yyyy")}. Jika tidak menemukan jawaban, tolong jangan infokan bahwa anda memiliki data propinsi, kota, dan lain lain.";
+                        provision += $" Jika pertanyaan mengenai jadwal shalat tolong jawab dan filter data berdasarkan nama kota, tanggal dan bulan, dan hanya menyediakan jawaban untuk bulan saat ini, semisal menanyakan hari ini, kemarin, besok itu masih bisa, yang terpenting tidak lebih dari 30 hari atau 1 bulan kedepan. Date sekarang: {date.ToString("dd/MM/yyyy")}. Jika tidak menemukan jawaban, tolong jangan infokan bahwa anda memiliki data propinsi, kota, dan lain lain.";
 
-                        }
-                        else
-                        {
-                            Console.WriteLine("Maaf, saya tidak dapat menemukan nama kota dalam pertanyaan Anda. Silakan sebutkan nama kota untuk mendapatkan jadwal shalat.");
-                            return;
-                        }
-
-                    }
-
-                    foreach (var selection in selections)
-                    {
-                        var keywords = selection.PromptWords
-                            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                        if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            if (!matchedDataLinks.Contains(selection.Link))
-                                matchedDataLinks.Add(selection.Link);
-                        }
-                    }
-
-
-                    //Read to PDF Files if not matched some data shalat or link docs
-                    if ((matchedDataLinks == null || !matchedDataLinks.Any()))
-                    {
-                        encodedStringData = await GetCombinedPdfBase64Async(configuration);
-                        partsData = new object[]{
-                                        new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
-                                        new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
-                        };
                     }
                     else
                     {
-                        if (matchedDataLinks == null || matchedDataLinks.Count == 0)
-                        {
-                            Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
-                            return;
-                        }
-
-                        var googleContents = string.Empty;
-                        foreach (var item in matchedDataLinks)
-                        {
-                            var googleContent = await GetGoogleDocContentAsync(item, kotaName);
-
-                            googleContents += "\n\n" + googleContent;
-                        }
-
-                        partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
-
+                        Console.WriteLine("Maaf, saya tidak dapat menemukan nama kota dalam pertanyaan Anda. Silakan sebutkan nama kota untuk mendapatkan jadwal shalat.");
+                        return;
                     }
 
-                    //Console.WriteLine($"PartsData: {partsData[0]}");
+                }
 
-                    var payload = new
+                var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
+
+                Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
+
+
+                //Read to PDF Files if not matched some data shalat or link docs
+                //TODO
+                //1. Can be read to .docx, .xlsx
+                if ((matchedDataLinks == null || !matchedDataLinks.Any()))
+                {
+                    encodedStringData = await GetCombinedPdfBase64Async(_configuration);
+                    partsData = new object[]{
+                                        new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
+                                        new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
+                        };
+                }
+                else
+                {
+                    if (matchedDataLinks == null || matchedDataLinks.Count == 0)
                     {
-                        contents = new[]
-                        {
+                        Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
+                        return;
+                    }
+
+                    var googleContents = string.Empty;
+                    foreach (var item in matchedDataLinks)
+                    {
+                        var googleContent = await GoogleDocHelper.GetGoogleDocContentAsync(item, kotaName);
+
+                        googleContents += "\n\n" + googleContent;
+                    }
+
+                    partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
+
+                }
+
+                Console.WriteLine($"Waktu setelah GetGoogleDocContentAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
+
+                //Console.WriteLine($"PartsData: {partsData[0]}");
+
+                var payload = new
+                {
+                    contents = new[]
+                    {
                             new
                             {
                                 parts = partsData
                             }
                         }
+                };
+
+                string jsonPayload = JsonSerializer.Serialize(payload);
+                //Console.WriteLine   (jsonPayload);
+                // Send the POST request
+
+                Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
+
+                using (HttpClient httpClient = new HttpClient())
+                {
+                    httpClient.Timeout = TimeSpan.FromMinutes(5); // Increase to 5 minutes
+                    var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{geminiVersion}:generateContent?key={googleApiKey}")
+                    {
+                        Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
                     };
 
-                    string jsonPayload = JsonSerializer.Serialize(payload);
-                    //Console.WriteLine   (jsonPayload);
-                    // Send the POST request
+                    HttpResponseMessage response = await httpClient.SendAsync(request);
 
-                    //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
+                    //Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
 
-                    using (HttpClient httpClient = new HttpClient())
+                    // Read and output the response
+                    string responseBody = await response.Content.ReadAsStringAsync();
+                    //Console.WriteLine("responseBody:", responseBody);
+                    // Optionally parse and extract specific parts of the response
+                    using (JsonDocument jsonDoc = JsonDocument.Parse(responseBody))
                     {
-                        httpClient.Timeout = TimeSpan.FromMinutes(5); // Increase to 5 minutes
-                        var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{geminiVersion}:generateContent?key={googleApiKey}")
+                        if (jsonDoc.RootElement.TryGetProperty("candidates", out JsonElement candidates))
                         {
-                            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
-                        };
-
-                        HttpResponseMessage response = await httpClient.SendAsync(request);
-
-                        //Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
-
-                        // Read and output the response
-                        string responseBody = await response.Content.ReadAsStringAsync();
-                        //Console.WriteLine("responseBody:", responseBody);
-                        // Optionally parse and extract specific parts of the response
-                        using (JsonDocument jsonDoc = JsonDocument.Parse(responseBody))
-                        {
-                            if (jsonDoc.RootElement.TryGetProperty("candidates", out JsonElement candidates))
+                            foreach (JsonElement candidate in candidates.EnumerateArray())
                             {
-                                foreach (JsonElement candidate in candidates.EnumerateArray())
+                                if (candidate.TryGetProperty("content", out JsonElement content) &&
+                                    content.TryGetProperty("parts", out JsonElement contentParts))
                                 {
-                                    if (candidate.TryGetProperty("content", out JsonElement content) &&
-                                        content.TryGetProperty("parts", out JsonElement contentParts))
+                                    foreach (JsonElement part in contentParts.EnumerateArray())
                                     {
-                                        foreach (JsonElement part in contentParts.EnumerateArray())
+                                        if (part.TryGetProperty("text", out JsonElement textElement))
                                         {
-                                            if (part.TryGetProperty("text", out JsonElement textElement))
+                                            string potentialResponse = textElement.GetString();
+                                            if (!string.IsNullOrWhiteSpace(potentialResponse))
                                             {
-                                                string potentialResponse = textElement.GetString();
-                                                if (!string.IsNullOrWhiteSpace(potentialResponse))
-                                                {
-                                                    respone = potentialResponse;
-                                                    break;
-                                                }
+                                                respone = potentialResponse;
+                                                break;
                                             }
                                         }
                                     }
                                 }
                             }
-
                         }
+
                     }
-
-                    //respone += responseBody;
-                    if (string.IsNullOrEmpty(respone))
-                        respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
-                    Console.WriteLine(respone);
-
-                    var endTime = DateTime.Now;
-                    var elapsedTime = endTime - startTime;
-                    //Console.WriteLine($"Total respons: {elapsedTime.TotalSeconds} detik");
                 }
+
+                //respone += responseBody;
+                if (string.IsNullOrEmpty(respone))
+                    respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
+                Console.WriteLine(respone);
+
+                var endTime = DateTime.Now;
+                var elapsedTime = endTime - startTime;
+                Console.WriteLine($"Total respons: {elapsedTime.TotalSeconds} detik");
+
             }
             catch (Exception ex)
             {
@@ -301,71 +261,6 @@ namespace GeminiChatBot
             File.Delete(outputPdf);
 
             return _cachedEncodedPdf;
-        }
-
-        public static async Task<string> GetGoogleDocContentAsync(string googleLink, string kotaName = null)
-        {
-            using var httpClient = new HttpClient();
-            string url = googleLink;
-
-            if (url.Contains("docs.google.com/document"))
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
-                if (!match.Success)
-                    throw new ArgumentException("Invalid Google Docs link");
-
-                string docId = match.Groups[1].Value;
-
-                url = $"https://docs.google.com/document/d/{docId}/export?format=txt";
-
-                return await httpClient.GetStringAsync(url);
-            }
-            else if (url.Contains("docs.google.com/spreadsheets"))
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
-                if (!match.Success)
-                    throw new ArgumentException("Invalid Google Sheets link");
-
-                string sheetId = match.Groups[1].Value;
-                url = $"https://docs.google.com/spreadsheets/d/{sheetId}/export?format=csv";
-
-                var csvContent = await httpClient.GetStringAsync(url);
-
-                if (string.IsNullOrEmpty(kotaName)) 
-                    return csvContent;
-
-                int month = DateTime.Now.Month;
-
-                var lines = csvContent.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-                if (lines.Length <= 1)
-                    return csvContent;
-
-                var header = lines[0].Split(',');
-                var resultLines = new List<string> { string.Join(',', header) };
-
-                int kotaIndex = Array.FindIndex(header, h => h.Equals("kota", StringComparison.OrdinalIgnoreCase));
-                int bulanIndex = Array.FindIndex(header, h => h.Equals("bulan", StringComparison.OrdinalIgnoreCase));
-
-                foreach (var line in lines.Skip(1))
-                {
-                    var cols = line.Split(',');
-                    if (cols.Length != header.Length) continue;
-
-                    bool matchKota = string.IsNullOrEmpty(kotaName) || cols[kotaIndex].Contains(kotaName, StringComparison.OrdinalIgnoreCase);
-                    bool matchBulan = month == null || cols[bulanIndex].Trim() == month.ToString();
-
-                    if (matchKota && matchBulan)
-                    {
-                        resultLines.Add(line);
-                    }
-                }
-
-                return string.Join('\n', resultLines);
-            }
-            else
-            {
-                throw new ArgumentException("Unsupported Google link. Must be Docs or Sheets.");
-            }
         }
 
         //public static async Task<string> GetGoogleDocContentAsync(string googleLink, string googleApiKey = null)
