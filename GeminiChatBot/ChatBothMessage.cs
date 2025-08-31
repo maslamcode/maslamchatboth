@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Google.Cloud.AIPlatform.V1;
 using GeminiChatBot.Services;
 using GeminiChatBot.Helper;
 
@@ -17,6 +16,7 @@ namespace GeminiChatBot
         private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(30);
 
         private static IChatBotService _chatBotService;
+        private static ISholatService _sholatService;
         private static IConfiguration _configuration;
         static ChatBothMessage()
         {
@@ -26,6 +26,7 @@ namespace GeminiChatBot
                 .Build();
 
             _chatBotService = new ChatBotService(_configuration);
+            _sholatService = new SholatService(_configuration);
         }
 
         public static async Task sentMessage(string prompt)
@@ -57,9 +58,10 @@ namespace GeminiChatBot
                 var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
                 bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
                 var kotaName = string.Empty;
+                var jadwalSholatContent = string.Empty;
                 if (isShalat)
                 {
-                    kotaName = await ExtractKotaName(prompt, context);
+                    kotaName = await _sholatService.ExtractKotaNameDapper(prompt);
 
                     if (!string.IsNullOrEmpty(kotaName))
                     {
@@ -74,47 +76,63 @@ namespace GeminiChatBot
                         return;
                     }
 
-                }
+                    jadwalSholatContent = await _sholatService.GetJadwalSholatByKotaNameAsCsv(prompt, true);
 
-                var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
-
-                Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
-
-
-                //Read to PDF Files if not matched some data shalat or link docs
-                //TODO
-                //1. Can be read to .docx, .xlsx
-                if ((matchedDataLinks == null || !matchedDataLinks.Any()))
-                {
-                    encodedStringData = await GetCombinedPdfBase64Async(_configuration);
-                    partsData = new object[]{
-                                        new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
-                                        new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
-                        };
-                }
-                else
-                {
-                    if (matchedDataLinks == null || matchedDataLinks.Count == 0)
+                    if (string.IsNullOrEmpty(jadwalSholatContent))
                     {
-                        Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
+                        Console.WriteLine($"Maaf, saya tidak memiliki data jadwal shalat untuk kota {kotaName} pada bulan ini.");
                         return;
                     }
 
-                    var googleContents = string.Empty;
-                    foreach (var item in matchedDataLinks)
-                    {
-                        var googleContent = await GoogleDocHelper.GetGoogleDocContentAsync(item, kotaName);
+                    encodedStringData = Convert.ToBase64String(Encoding.UTF8.GetBytes(jadwalSholatContent));
 
-                        googleContents += "\n\n" + googleContent;
+                    partsData = new object[]
+                    {
+                        new { inline_data = new { mime_type = "text/csv", data = encodedStringData } },
+                        new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
+                    };
+                }
+                else
+                {
+
+                    var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
+
+                    Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
+
+                    //Read to PDF Files if not matched some data shalat or link docs
+                    //TODO
+                    //1. Can be read to .docx, .xlsx
+                    if ((matchedDataLinks == null || !matchedDataLinks.Any()))
+                    {
+                        encodedStringData = await GetCombinedPdfBase64Async(_configuration);
+                        partsData = new object[]{
+                                        new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
+                                        new { text = $"Pertanyaan: {prompt}\n\n{provision}" }
+                        };
+                    }
+                    else
+                    {
+                        if (matchedDataLinks == null || matchedDataLinks.Count == 0)
+                        {
+                            Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
+                            return;
+                        }
+
+                        var googleContents = string.Empty;
+                        foreach (var item in matchedDataLinks)
+                        {
+                            var googleContent = await GoogleDocHelper.GetGoogleDocContentAsync(item, kotaName);
+
+                            googleContents += "\n\n" + googleContent;
+                        }
+
+                        partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
+
                     }
 
-                    partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
+                    Console.WriteLine($"Waktu setelah GetGoogleDocContentAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                 }
-
-                Console.WriteLine($"Waktu setelah GetGoogleDocContentAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
-
-                //Console.WriteLine($"PartsData: {partsData[0]}");
 
                 var payload = new
                 {
@@ -326,32 +344,6 @@ namespace GeminiChatBot
         //        throw new ArgumentException("Unsupported Google link. Must be Docs or Sheets.");
         //    }
         //}
-
-
-
-
-        public static async Task<string?> ExtractKotaName(string prompt, MyDbContext context)
-        {
-            var kotalist = await context.Kotas.Select(k => k.Nama).ToListAsync();
-
-            foreach (var namakota in kotalist)
-            {
-                var overrideNamaKota = namakota;
-
-                if (prompt.Contains(overrideNamaKota, StringComparison.OrdinalIgnoreCase))
-                {
-                    return namakota;
-                }
-            }
-
-            return null;
-        }
-
-        public class DataLinkPromptSelection
-        {
-            public string PromptWords { get; set; }
-            public string Link { get; set; }
-        }
 
     }
 }
