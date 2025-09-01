@@ -10,17 +10,17 @@ namespace GeminiChatBot.Models
 {
     public class JadwalSholatModel
     {
-        public string propinsi { get; set; } = string.Empty;
-        public string kota { get; set; } = string.Empty;
+        public string propinsi { get; set; }
+        public string kota { get; set; }
         public int tanggal { get; set; }
         public int bulan { get; set; }
-        public string imsak { get; set; } = string.Empty;
-        public string subuh { get; set; } = string.Empty;
-        public string terbit { get; set; } = string.Empty;
-        public string duha { get; set; } = string.Empty;
-        public string zuhur { get; set; } = string.Empty;
-        public string asar { get; set; } = string.Empty;
-        public string magrib { get; set; } = string.Empty;
-        public string isya { get; set; } = string.Empty;
+        public TimeSpan imsak { get; set; }
+        public TimeSpan subuh { get; set; }
+        public TimeSpan terbit { get; set; }
+        public TimeSpan duha { get; set; }
+        public TimeSpan zuhur { get; set; }
+        public TimeSpan asar { get; set; }
+        public TimeSpan magrib { get; set; }
+        public TimeSpan isya { get; set; }
     }
 }

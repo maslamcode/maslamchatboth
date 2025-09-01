@@ -76,11 +76,11 @@ namespace GeminiChatBot
                         return;
                     }
 
-                    jadwalSholatContent = await _sholatService.GetJadwalSholatByKotaNameAsCsv(prompt, true);
+                    jadwalSholatContent = await _sholatService.GetJadwalSholatByKotaNameAsCsv(kotaName, true);
 
                     if (string.IsNullOrEmpty(jadwalSholatContent))
                     {
-                        Console.WriteLine($"Maaf, saya tidak memiliki data jadwal shalat untuk kota {kotaName} pada bulan ini.");
+                        Console.WriteLine($"Maaf, saya tidak memiliki data jadwal shalat untuk {kotaName} pada bulan ini.");
                         return;
                     }
 

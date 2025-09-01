@@ -69,7 +69,11 @@ namespace GeminiChatBot.Services
             sql += " ORDER BY js.bulan, js.tanggal ASC;";
 
 
-            return await conn.QueryAsync<JadwalSholatModel>(sql, new { kotaName });
+            return await conn.QueryAsync<JadwalSholatModel>(sql, new
+            {
+                kotaName,
+                currentMonth = DateTime.Now.Month
+            });
         }
 
         public async Task<string> GetJadwalSholatByKotaNameAsCsv(string kotaName, bool isCurrentMonth = true)
