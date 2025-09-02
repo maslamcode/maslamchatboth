@@ -247,30 +247,6 @@ namespace GeminiChatBot
             string folderPath = Path.Combine(AppContext.BaseDirectory, "DataPDF");
             string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf").ToArray();
 
-            // Online PDFs (Google Docs)
-            var onlineSources = configuration.GetSection("DataGoogleDocsOnline").Get<string[]>();
-            foreach (var source in onlineSources)
-            {
-                string localTempFile = Path.GetTempFileName();
-                using var httpClient = new HttpClient();
-                string url = source;
-
-                if (url.Contains("docs.google.com/document"))
-                {
-                    var match = System.Text.RegularExpressions.Regex.Match(url, @"/d/([a-zA-Z0-9-_]+)");
-                    if (match.Success)
-                    {
-                        string docId = match.Groups[1].Value;
-                        url = $"https://docs.google.com/document/d/{docId}/export?format=pdf";
-                    }
-                }
-
-                byte[] pdfData = await httpClient.GetByteArrayAsync(url);
-                await File.WriteAllBytesAsync(localTempFile, pdfData);
-
-                pdfFiles = pdfFiles.Concat(new[] { localTempFile }).ToArray();
-            }
-
             CombinePdfs(pdfFiles, outputPdf);
 
             _cachedEncodedPdf = Convert.ToBase64String(await File.ReadAllBytesAsync(outputPdf));

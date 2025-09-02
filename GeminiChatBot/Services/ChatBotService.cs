@@ -78,6 +78,9 @@ namespace GeminiChatBot.Services
 
             var matchedLinks = new List<string>();
 
+            if(allData == null || !allData.Any())
+                return matchedLinks;
+
             foreach (var selection in allData)
             {
                 if (string.IsNullOrWhiteSpace(selection.prompt_words) || string.IsNullOrWhiteSpace(selection.data_link_online))
