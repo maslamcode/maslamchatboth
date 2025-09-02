@@ -10,6 +10,54 @@ const fs = require("fs");
 const qrcode = require("qrcode-terminal");
 const path = require("path");
 
+
+// ==== Express API ====
+const express = require("express");
+const multer = require("multer");
+
+const app = express();
+const port = 3000;
+
+const uploadFolder = path.join(__dirname, "DataPDF");
+if (!fs.existsSync(uploadFolder)) {
+    fs.mkdirSync(uploadFolder);
+}
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadFolder),
+    filename: (req, file, cb) => cb(null, file.originalname)
+});
+const upload = multer({ storage });
+
+// API: List file
+app.get("/files", (req, res) => {
+    fs.readdir(uploadFolder, (err, files) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(files);
+    });
+});
+
+// API: Upload file
+app.post("/upload", upload.single("file"), (req, res) => {
+    res.json({ message: "✅ File uploaded", file: req.file });
+});
+
+// API: Delete file
+app.delete("/files/:name", (req, res) => {
+    const filePath = path.join(uploadFolder, req.params.name);
+    fs.unlink(filePath, (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "🗑️ File deleted" });
+    });
+});
+
+app.listen(port, () => {
+    console.log(`📡 File API running at http://localhost:${port}`);
+});
+
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
