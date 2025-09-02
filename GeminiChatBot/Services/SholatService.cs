@@ -27,16 +27,36 @@ namespace GeminiChatBot.Services
         {
             using var conn = GetConnection();
 
-            var sql = @"
-                SELECT nama 
-                FROM ref.kota
-                WHERE is_aktif = true
-                  AND @prompt ILIKE '%' || nama || '%'
-                LIMIT 1;
-            ";
+            var sqlAll = @"SELECT nama FROM ref.kota WHERE is_aktif = true;";
+            var allKota = (await conn.QueryAsync<string>(sqlAll)).ToList();
 
-            return await conn.QueryFirstOrDefaultAsync<string?>(sql, new { prompt });
+            if (!allKota.Any())
+                return null;
+
+            var matchedKota = allKota
+                .Where(kota => prompt.Contains(kota, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matchedKota.Any())
+            {
+                return matchedKota.First();
+            }
+
+            var words = prompt
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            foreach (var word in words)
+            {
+                var match = allKota.FirstOrDefault(k =>
+                    k.Contains(word, StringComparison.OrdinalIgnoreCase));
+
+                if (match != null)
+                    return match;
+            }
+
+            return null;
         }
+
         public async Task<IEnumerable<JadwalSholatModel>> GetJadwalSholatByKotaName(string kotaName, bool isCurrentMonth = true)
         {
             using var conn = GetConnection();

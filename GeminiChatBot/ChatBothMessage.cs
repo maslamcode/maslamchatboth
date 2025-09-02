@@ -52,7 +52,7 @@ namespace GeminiChatBot
                 var partsData = Array.Empty<object>();
                 var respone = string.Empty;
 
-                Console.WriteLine($"Waktu setelah greetings: {(DateTime.Now - startTime).TotalSeconds} detik");
+                //Console.WriteLine($"Waktu setelah greetings: {(DateTime.Now - startTime).TotalSeconds} detik");
                 string encodedStringData = string.Empty;
 
                 var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
@@ -67,7 +67,7 @@ namespace GeminiChatBot
                     {
                         var date = DateTime.Now;
 
-                        provision += $" Jika pertanyaan mengenai jadwal shalat tolong jawab dan filter data berdasarkan nama kota, tanggal dan bulan, dan hanya menyediakan jawaban untuk bulan saat ini, semisal menanyakan hari ini, kemarin, besok itu masih bisa, yang terpenting tidak lebih dari 30 hari atau 1 bulan kedepan. Date sekarang: {date.ToString("dd/MM/yyyy")}. Jika tidak menemukan jawaban, tolong jangan infokan bahwa anda memiliki data propinsi, kota, dan lain lain.";
+                        provision += $" Jika pertanyaan mengenai jadwal shalat tolong jawab dan filter data berdasarkan nama kota, tanggal dan bulan, dan hanya menyediakan jawaban untuk bulan saat ini, semisal menanyakan hari ini, kemarin, besok itu masih bisa, yang terpenting tidak lebih dari 30 hari atau 1 bulan kedepan, jika tidak ada menentukan kapan jadwal yang ditanyakan secara default ambil untuk jadwal hari ini, dan selalu infokan tanggalnya. Date sekarang: {date.ToString("dd/MM/yyyy")}. Jika tidak menemukan jawaban, tolong jangan infokan bahwa anda memiliki data propinsi, kota, dan lain lain.";
 
                     }
                     else
@@ -97,7 +97,7 @@ namespace GeminiChatBot
 
                     var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
 
-                    Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
+                    //Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                     //Read to PDF Files if not matched some data shalat or link docs
                     //TODO
@@ -130,7 +130,7 @@ namespace GeminiChatBot
 
                     }
 
-                    Console.WriteLine($"Waktu setelah GetGoogleDocContentAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
+                    //Console.WriteLine($"Waktu setelah GetGoogleDocContentAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                 }
 
@@ -149,7 +149,7 @@ namespace GeminiChatBot
                 //Console.WriteLine   (jsonPayload);
                 // Send the POST request
 
-                Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
+                //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                 using (HttpClient httpClient = new HttpClient())
                 {
@@ -202,7 +202,7 @@ namespace GeminiChatBot
 
                 var endTime = DateTime.Now;
                 var elapsedTime = endTime - startTime;
-                Console.WriteLine($"Total respons: {elapsedTime.TotalSeconds} detik");
+                //Console.WriteLine($"Total respons: {elapsedTime.TotalSeconds} detik");
 
             }
             catch (Exception ex)
