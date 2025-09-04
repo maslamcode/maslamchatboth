@@ -81,6 +81,7 @@ namespace GeminiChatBot.Services
                 WHERE k.nama = @kotaName
             ";
 
+            //TODO -- Get 30 Next 30 Prevs
             if (isCurrentMonth)
             {
                 sql += " AND js.bulan = @currentMonth";

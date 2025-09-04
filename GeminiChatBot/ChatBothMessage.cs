@@ -55,11 +55,14 @@ namespace GeminiChatBot
                 //Console.WriteLine($"Waktu setelah greetings: {(DateTime.Now - startTime).TotalSeconds} detik");
                 string encodedStringData = string.Empty;
 
-                var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat" };
+                var shalatWords = new List<string> { "sholat", "salat", "shalat", "solat", "shlht" };
+                var jadwalWowrds = new List<string> { "jadwal" };
                 bool isShalat = shalatWords.Any(shalatWord => prompt.Contains(shalatWord, StringComparison.OrdinalIgnoreCase));
+                bool isJadwal = jadwalWowrds.Any(jadwalWowrds => prompt.Contains(jadwalWowrds, StringComparison.OrdinalIgnoreCase));
+
                 var kotaName = string.Empty;
                 var jadwalSholatContent = string.Empty;
-                if (isShalat)
+                if (isShalat && isJadwal)
                 {
                     kotaName = await _sholatService.ExtractKotaNameDapper(prompt);
 
@@ -80,10 +83,12 @@ namespace GeminiChatBot
 
                     if (string.IsNullOrEmpty(jadwalSholatContent))
                     {
+                        //TODO - Diupdate Text Response
                         Console.WriteLine($"Maaf, saya tidak memiliki data jadwal shalat untuk {kotaName} pada bulan ini.");
                         return;
                     }
 
+                    //TODO - Coba untuk tidak diencoded
                     encodedStringData = Convert.ToBase64String(Encoding.UTF8.GetBytes(jadwalSholatContent));
 
                     partsData = new object[]
@@ -198,7 +203,9 @@ namespace GeminiChatBot
                 //respone += responseBody;
                 if (string.IsNullOrEmpty(respone))
                     respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
-                Console.WriteLine(respone);
+                
+                
+                Console.WriteLine(respone); //Response
 
                 var endTime = DateTime.Now;
                 var elapsedTime = endTime - startTime;
@@ -208,6 +215,7 @@ namespace GeminiChatBot
             catch (Exception ex)
             {
                 Console.WriteLine("err : " + ex.Message + ", Sorry please ask again.");
+                Console.WriteLine("Mohon sistem tidak ");
             }
         }
 

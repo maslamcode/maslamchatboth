@@ -2,7 +2,8 @@
     makeWASocket,
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    DisconnectReason
+    DisconnectReason,
+    jidNormalizedUser
 } = require("@whiskeysockets/baileys");
 const pino = require("pino");
 const { spawn } = require("child_process");
@@ -60,6 +61,20 @@ app.listen(port, () => {
 
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function safeSend(socket, jid, content, options = {}) {
+    try {
+        return await socket.sendMessage(jid, content, options);
+    } catch (err) {
+        if (err?.message?.includes("No sessions")) {
+            console.warn("⚠️ No sessions, retrying after key fetch...");
+            await socket.presenceSubscribe(jid);
+            await delay(2000);
+            return await socket.sendMessage(jid, content, options);
+        }
+        throw err;
+    }
 }
 
 async function connectToWhatsApp() {
@@ -123,41 +138,68 @@ async function connectToWhatsApp() {
             const message = messages[0];
             if (!message.message) return;
 
-            const pesan = message.message?.extendedTextMessage?.text || message.message?.conversation;
+            const pesan =
+                message.message?.extendedTextMessage?.text ||
+                message.message?.conversation;
+
             const phone = message.key.remoteJid;
             const fromMe = message.key.fromMe;
+            const chatId = jidNormalizedUser(phone);
 
             if (!fromMe && phone.endsWith("@g.us")) {
-                const tag = "@6281360019090"; // ← Ganti sesuai nomormu
+                const tag = "@6281360019090"; // ← ganti sesuai nomor kamu
                 const tag2 = "@8603490619632";
 
-                //Please put phone on the console
                 console.log(now + " 📥 Pesan masuk dari grup:", pesan);
 
-                if ((pesan && pesan.includes(tag)) || (pesan && pesan.includes(tag2))) {
-                    const cleanPesan = pesan.replace(tag, "").trim();
-                    console.log(now + " 📥 Pesan:", cleanPesan);
+                if (
+                    (pesan && pesan.includes(tag)) ||
+                    (pesan && pesan.includes(tag2))
+                ) {
+                    const cleanPesan = pesan
+                        .replace(tag, "")
+                        .replace(tag2, "")
+                        .trim();
+
+                    console.log(now + " 📥 Pesan (clean):", cleanPesan);
 
                     try {
                         console.log(now + " 📤 Mengirim pesan ke C#...");
+                        let response = await sentToCSharp(cleanPesan);
 
-                        const response = await sentToCSharp(cleanPesan);
-                        await socket.sendMessage(phone, { text: response });
+                        if (!response || !response.trim()) {
+                            response = "⚠️ Tidak ada balasan dari bot.";
+                        }
 
-                        console.log(now + " 📤 Pesan terkirim:", response);
+                        console.log(now + " 📤 Target:", phone, "→", chatId);
+
+                        const sendResult = await safeSend(
+                            socket,
+                            phone,
+                            { text: response },
+                            { quoted: message }
+                        );
+
+                        console.log(now + " ✅ Pesan terkirim:", response);
+                        console.log("📬 Send result:", sendResult);
                     } catch (err) {
                         console.error(now + " ❌ Error while processing message:", err);
-                        await socket.sendMessage(phone, { text: "Maaf, terjadi kesalahan saat memproses pesan." });
+                        try {
+                            await safeSend(socket, phone, {
+                                text: "Maaf, terjadi kesalahan saat memproses pesan.",
+                            });
+                        } catch (sendErr) {
+                            console.error("❌ Gagal mengirim pesan error:", sendErr);
+                        }
                     }
-                   
                 }
             } else {
-                console.log(now + " Pesan masuknya : ", pesan);
+                console.log(now + " 📥 Pesan masuk (bukan grup):", pesan);
             }
-
         } catch (err) {
             console.error(now + " ❌ Error while processing message:", err);
         }
+
     });
 }
 
