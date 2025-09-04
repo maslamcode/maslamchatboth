@@ -68,9 +68,9 @@ async function safeSend(socket, jid, content, options = {}) {
         return await socket.sendMessage(jid, content, options);
     } catch (err) {
         if (err?.message?.includes("No sessions")) {
-            console.warn("⚠️ No sessions, retrying after key fetch...");
-            await socket.presenceSubscribe(jid);
-            await delay(2000);
+            console.warn("⚠️ No sessions, nunggu WA kirim senderKey...");
+            await delay(8000);
+            console.log("🔄 Retry setelah delay 8 detik...");
             return await socket.sendMessage(jid, content, options);
         }
         throw err;
@@ -103,6 +103,21 @@ async function connectToWhatsApp() {
             console.log(now + " 📡 WhatsApp Connecting...");
         } else if (connection === "open") {
             console.log(now + " ✅ WhatsApp Connected.");
+
+            try {
+                const groups = await socket.groupFetchAllParticipating();
+                for (const id in groups) {
+                    const metadata = groups[id];
+                    console.log("📌 Prewarming session grup:", metadata.subject);
+                    for (const participant of metadata.participants) {
+                        await socket.presenceSubscribe(participant.id);
+                        await delay(200);
+                    }
+                }
+            } catch (e) {
+                console.error("⚠️ Gagal prewarm session grup:", e);
+            }
+
         } else if (connection === "close") {
             const reason = lastDisconnect?.error?.output?.statusCode;
             console.log(now + " ❌ WhatsApp Closed. Reason:", reason);
@@ -116,16 +131,16 @@ async function connectToWhatsApp() {
                     console.error("Gagal menghapus session:", err);
                 }
 
-                const waitMinutes = Math.floor(Math.random() * 4) + 2; // 2-5 minutes
-                const waitMs = waitMinutes * 60 * 1000;
+                const waitSeconds = Math.floor(Math.random() * 20) + 10; // 10–30 detik
+                const waitMs = waitSeconds * 1000;
 
                 console.log(`⏱️ Menunggu ${waitMinutes} menit sebelum reconnect...`);
                 await delay(waitMs);
 
                 connectToWhatsApp();
             } else {
-                console.log(now + " 🔄 Reconnecting in 5s...");
-                await delay(5000);
+                console.log(now + " 🔄 Reconnecting in 2s...");
+                await delay(2000);
                 connectToWhatsApp();
             }
         }
@@ -138,6 +153,12 @@ async function connectToWhatsApp() {
             const message = messages[0];
             if (!message.message) return;
 
+            if (message.message?.senderKeyDistributionMessage) {
+                console.log("🔑 Dapat senderKeyDistributionMessage dari:", message.key.remoteJid);
+                console.log("📄 Key payload:", message.message.senderKeyDistributionMessage);
+                return; 
+            }
+
             const pesan =
                 message.message?.extendedTextMessage?.text ||
                 message.message?.conversation;
@@ -148,7 +169,7 @@ async function connectToWhatsApp() {
 
             if (!fromMe && phone.endsWith("@g.us")) {
                 const tag = "@6281360019090"; // ← ganti sesuai nomor kamu
-                const tag2 = "@8603490619632";
+                const tag2 = "@119662469746719";
 
                 console.log(now + " 📥 Pesan masuk dari grup:", pesan);
 
@@ -199,8 +220,8 @@ async function connectToWhatsApp() {
         } catch (err) {
             console.error(now + " ❌ Error while processing message:", err);
         }
-
     });
+
 }
 
 async function sentToCSharp(text) {
