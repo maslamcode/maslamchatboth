@@ -15,8 +15,23 @@ class Program
         {
             if (args.Length > 0)
             {
-                string prompt = args[0];
-                await ChatBothMessage.sentMessage(prompt);
+                if (args[0].Equals("upload", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Example: dotnet run upload path/to/file.png
+                    if (args.Length < 2)
+                    {
+                        Console.WriteLine("⚠️ Please provide a file path for upload.");
+                        return;
+                    }
+
+                    string filePath = args[1];
+                    await UploadFile(filePath);
+                }
+                else
+                {
+                    string prompt = args[0];
+                    await ChatBothMessage.sentMessage(prompt);
+                }
             }
             else {
                 while (true)
@@ -35,6 +50,28 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine($"An error occurred: {ex.Message}");
+        }
+    }
+
+    static async Task UploadFile(string filePath)
+    {
+        if (!File.Exists(filePath))
+        {
+            Console.WriteLine("❌ File not found.");
+            return;
+        }
+
+        using (var client = new HttpClient())
+        using (var form = new MultipartFormDataContent())
+        using (var fileStream = File.OpenRead(filePath))
+        {
+            var streamContent = new StreamContent(fileStream);
+            form.Add(streamContent, "file", Path.GetFileName(filePath));
+
+            HttpResponseMessage response = await client.PostAsync("http://172.104.163.223:3000/upload", form);
+
+            string result = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"✅ Response: {result}");
         }
     }
 

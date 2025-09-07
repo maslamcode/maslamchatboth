@@ -156,7 +156,6 @@ async function connectToWhatsApp() {
             if (message.message?.senderKeyDistributionMessage) {
                 console.log("🔑 Dapat senderKeyDistributionMessage dari:", message.key.remoteJid);
                 console.log("📄 Key payload:", message.message.senderKeyDistributionMessage);
-                return; 
             }
 
             const pesan =

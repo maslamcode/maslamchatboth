@@ -150,12 +150,13 @@ namespace GeminiChatBot
                         }
                 };
 
-                string jsonPayload = JsonSerializer.Serialize(payload);
                 //Console.WriteLine   (jsonPayload);
                 // Send the POST request
 
                 //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
 
+                string jsonPayload = JsonSerializer.Serialize(payload);
+              
                 using (HttpClient httpClient = new HttpClient())
                 {
                     httpClient.Timeout = TimeSpan.FromMinutes(5); // Increase to 5 minutes
