@@ -65,6 +65,8 @@ class Program
         using (var form = new MultipartFormDataContent())
         using (var fileStream = File.OpenRead(filePath))
         {
+            client.DefaultRequestHeaders.Add("x-api-key", "TCH0qIeozGfEkHGOSZuaYJaI3GKjylsnjnwiFMRPmltSsPRbhpyBatvzhYeHco9NnZXSxp628cAZrx5EkInTUqOb7LXBNkECgZFtJDnt07mVyarrAGwGH4W37cKzlSi3");
+
             var streamContent = new StreamContent(fileStream);
             form.Add(streamContent, "file", Path.GetFileName(filePath));
 

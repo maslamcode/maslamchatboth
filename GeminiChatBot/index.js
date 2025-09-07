@@ -15,11 +15,21 @@ const path = require("path");
 // ==== Express API ====
 const express = require("express");
 const multer = require("multer");
+const API_KEY = "TCH0qIeozGfEkHGOSZuaYJaI3GKjylsnjnwiFMRPmltSsPRbhpyBatvzhYeHco9NnZXSxp628cAZrx5EkInTUqOb7LXBNkECgZFtJDnt07mVyarrAGwGH4W37cKzlSi3";
+
+function checkApiKey(req, res, next) {
+    const key = req.headers["x-api-key"];
+    if (key && key === API_KEY) {
+        next(); // valid → continue
+    } else {
+        res.status(401).json({ error: "Unauthorized - invalid API key" });
+    }
+}
 
 const app = express();
 const port = 3000;
 
-const uploadFolder = path.join(__dirname, "DataPDF");
+const uploadFolder = path.join(__dirname, "DataFiles");
 if (!fs.existsSync(uploadFolder)) {
     fs.mkdirSync(uploadFolder);
 }
@@ -33,27 +43,25 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// API: List file
-app.get("/files", (req, res) => {
+app.get("/files", checkApiKey, (req, res) => {
     fs.readdir(uploadFolder, (err, files) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(files);
     });
 });
 
-// API: Upload file
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/upload", checkApiKey, upload.single("file"), (req, res) => {
     res.json({ message: "✅ File uploaded", file: req.file });
 });
 
-// API: Delete file
-app.delete("/files/:name", (req, res) => {
+app.delete("/files/:name", checkApiKey, (req, res) => {
     const filePath = path.join(uploadFolder, req.params.name);
     fs.unlink(filePath, (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: "🗑️ File deleted" });
     });
 });
+
 
 app.listen(port, () => {
     console.log(`📡 File API running at http://localhost:${port}`);
