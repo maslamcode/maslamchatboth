@@ -26,6 +26,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.2" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="9.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.2" />
+    <PackageReference Include="PdfPig" Version="0.1.11" />
     <PackageReference Include="PDFsharp" Version="6.1.1" />
     <PackageReference Include="Selenium.Chrome.WebDriver" Version="85.0.0" />
     <PackageReference Include="Selenium.WebDriver" Version="4.27.0" />
@@ -36,10 +37,10 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DataPdf\Manual Guide - Financial - AR - AR Invoice.pdf">
+    <None Update="DataFiles\Manual Guide - Financial - AR - AR Invoice.pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DataPDF\_Manual Guide - Distribution - PO - Purchase Order (Approval).pdf">
+    <None Update="DataFiles\_Manual Guide - Distribution - PO - Purchase Order (Approval).pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

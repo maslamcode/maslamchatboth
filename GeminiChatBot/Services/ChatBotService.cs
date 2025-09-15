@@ -99,6 +99,40 @@ namespace GeminiChatBot.Services
             return matchedLinks;
         }
 
+        public async Task<IEnumerable<string>> GetMatchedDataFilesAsync(string prompt)
+        {
+            using var conn = GetConnection();
+
+            var sql = @"SELECT chat_boths_files_id, created_by, created_date, 
+                               updated_by, last_updated, rowversion, 
+                               prompt_words, file_name
+                        FROM chat_boths_files";
+
+            var allData = await conn.QueryAsync<ChatBothsFileModel>(sql);
+
+            var matchedFileNames = new List<string>();
+
+            if (allData == null || !allData.Any())
+                return matchedFileNames;
+
+            foreach (var selection in allData)
+            {
+                if (string.IsNullOrWhiteSpace(selection.prompt_words) || string.IsNullOrWhiteSpace(selection.file_name))
+                    continue;
+
+                var keywords = selection.prompt_words
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                {
+                    if (!matchedFileNames.Contains(selection.file_name))
+                        matchedFileNames.Add(selection.file_name);
+                }
+            }
+
+            return matchedFileNames;
+        }
+
 
     }
 }

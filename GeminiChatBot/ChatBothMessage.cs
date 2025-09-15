@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using GeminiChatBot.Services;
 using GeminiChatBot.Helper;
+using UglyToad.PdfPig.Content;
 
 namespace GeminiChatBot
 {
@@ -101,13 +102,17 @@ namespace GeminiChatBot
                 {
 
                     var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
+                    var matchedDataFiles = (await _chatBotService.GetMatchedDataFilesAsync(prompt)).ToList();
+
+                    Console.WriteLine($"Matched Links: {string.Join(", ", matchedDataLinks)}");
+                    Console.WriteLine($"Matched Files: {string.Join(", ", matchedDataFiles)}");
 
                     //Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                     //Read to PDF Files if not matched some data shalat or link docs
                     //TODO
                     //1. Can be read to .docx, .xlsx
-                    if ((matchedDataLinks == null || !matchedDataLinks.Any()))
+                    if ((matchedDataLinks == null || !matchedDataLinks.Any()) && (matchedDataFiles == null || !matchedDataFiles.Any()))
                     {
                         encodedStringData = await GetCombinedPdfBase64Async(_configuration);
                         partsData = new object[]{
@@ -117,21 +122,28 @@ namespace GeminiChatBot
                     }
                     else
                     {
-                        if (matchedDataLinks == null || matchedDataLinks.Count == 0)
+                        if ((matchedDataLinks == null || matchedDataLinks.Count == 0) && (matchedDataFiles == null || matchedDataFiles.Count == 0))
                         {
                             Console.WriteLine("Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.");
                             return;
                         }
 
-                        var googleContents = string.Empty;
+                        var contentFiles = string.Empty;
                         foreach (var item in matchedDataLinks)
                         {
                             var googleContent = await GoogleDocHelper.GetGoogleDocContentAsync(item, kotaName);
 
-                            googleContents += "\n\n" + googleContent;
+                            contentFiles += "\n\n" + googleContent;
                         }
 
-                        partsData = new[] { new { text = $"Data: {googleContents}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
+                        foreach (var item in matchedDataFiles)
+                        {
+                            var contentFile = await GetDocumentTextAsync(item);
+
+                            contentFiles += "\n\n" + contentFile;
+                        }
+
+                        partsData = new[] { new { text = $"Data: {contentFiles}\n\nPertanyaan: {prompt} berdasarkan data yang saya berikan. \n\n{provision}" } };
 
                     }
 
@@ -150,13 +162,13 @@ namespace GeminiChatBot
                         }
                 };
 
-                //Console.WriteLine   (jsonPayload);
                 // Send the POST request
 
                 //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                 string jsonPayload = JsonSerializer.Serialize(payload);
-              
+                Console.WriteLine(jsonPayload);
+
                 using (HttpClient httpClient = new HttpClient())
                 {
                     httpClient.Timeout = TimeSpan.FromMinutes(5); // Increase to 5 minutes
@@ -253,7 +265,7 @@ namespace GeminiChatBot
             string outputPdf = Path.Combine(Path.GetTempPath(), "combined_pdf.pdf");
 
             // Local PDFs
-            string folderPath = Path.Combine(AppContext.BaseDirectory, "DataPDF");
+            string folderPath = Path.Combine(AppContext.BaseDirectory, "DataFiles");
             string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf").ToArray();
 
             CombinePdfs(pdfFiles, outputPdf);
@@ -265,6 +277,46 @@ namespace GeminiChatBot
 
             return _cachedEncodedPdf;
         }
+
+        public static async Task<string> GetDocumentTextAsync(string filename)
+        {
+            string folderPath = Path.Combine(AppContext.BaseDirectory, "DataFiles");
+            string filePath = Path.Combine(folderPath, filename);
+
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException($"File not found: {filePath}");
+
+            string ext = Path.GetExtension(filePath).ToLowerInvariant();
+
+            switch (ext)
+            {
+                case ".txt":
+                    return await File.ReadAllTextAsync(filePath);
+
+                case ".pdf":
+                    var sb = new StringBuilder();
+                    await Task.Run(() =>
+                    {
+                        using (var pdf = UglyToad.PdfPig.PdfDocument.Open(filePath))
+                        {
+                            foreach (Page page in pdf.GetPages())
+                            {
+                                sb.AppendLine(page.Text);
+                            }
+                        }
+                    });
+                    return sb.ToString();
+
+                case ".docx":
+                    throw new NotSupportedException(
+                        ".docx is a ZIP-based format; use OpenXML SDK or another library to extract text.");
+
+                default:
+                    throw new NotSupportedException($"Unsupported file type: {ext}");
+            }
+        }
+
+
 
         //public static async Task<string> GetGoogleDocContentAsync(string googleLink, string googleApiKey = null)
         //{
