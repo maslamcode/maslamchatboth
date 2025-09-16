@@ -49,7 +49,6 @@ packages/
 *.designer.cs
 
 # npm package files
-node_modules/
 
 # Environment
 .env
