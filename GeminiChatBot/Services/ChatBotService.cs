@@ -78,7 +78,9 @@ namespace GeminiChatBot.Services
 
             var matchedLinks = new List<string>();
 
-            if(allData == null || !allData.Any())
+            //var useAndConjunction = true;
+
+            if (allData == null || !allData.Any())
                 return matchedLinks;
 
             foreach (var selection in allData)
@@ -88,6 +90,23 @@ namespace GeminiChatBot.Services
 
                 var keywords = selection.prompt_words
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                //var promptLower = prompt.ToLowerInvariant();
+
+                //bool isMatch;
+                //if (useAndConjunction)
+                //{
+                //    isMatch = keywords.All(k => promptLower.Contains(k.Trim().ToLowerInvariant()));
+                //}
+                //else
+                //{
+                //    isMatch = keywords.Any(k => promptLower.Contains(k.Trim().ToLowerInvariant()));
+                //}
+
+                //if (isMatch && !matchedLinks.Contains(selection.data_link_online))
+                //{
+                //    matchedLinks.Add(selection.data_link_online);
+                //}
 
                 if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 {

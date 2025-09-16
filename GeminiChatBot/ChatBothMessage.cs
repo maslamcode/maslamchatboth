@@ -7,6 +7,8 @@ using Microsoft.Extensions.Configuration;
 using GeminiChatBot.Services;
 using GeminiChatBot.Helper;
 using UglyToad.PdfPig.Content;
+using System.Text.RegularExpressions;
+using System.Net.NetworkInformation;
 
 namespace GeminiChatBot
 {
@@ -19,6 +21,8 @@ namespace GeminiChatBot
         private static IChatBotService _chatBotService;
         private static ISholatService _sholatService;
         private static IConfiguration _configuration;
+
+        private static string SourceResponse = string.Empty;
         static ChatBothMessage()
         {
             _configuration = new ConfigurationBuilder()
@@ -32,6 +36,7 @@ namespace GeminiChatBot
 
         public static async Task sentMessage(string prompt)
         {
+            SourceResponse = string.Empty;
             var startTime = DateTime.Now;
             try
             {
@@ -49,7 +54,7 @@ namespace GeminiChatBot
                 string geminiVersion = _configuration["Config:geminVersi"];
                 string googleApiKey = _configuration["Config:googleApiKey"];
 
-                var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk data tersebut, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian)";
+                var provision = "Ketentuan: Gunakan data yang telah disediakan. Jika tidak ditemukan jawab dengan dinamis bahwa hanya memiliki data untuk data tersebut, jika pertanyaan diluar konteks dan tidak ada dari data yang diberikan maka jawab 'Sebagai bagian dari Maslam, saya hanya dirancang untuk menjawab informasi terkait Maslam. Silakan tanyakan hal-hal seputar digitalisasi manajemen masjid/lembaga, fitur aplikasi Maslam, atau layanan kami.', berikan jawaban to the point tanpa bahasa seperti berdasarkan data yang anda berikan (Jawab dengan Indonesian). “Setiap kali selesai memberi jawaban, buatkan kalimat penutup:\r\n– Bernuansa Islami, lucu tapi sopan, dan terasa humanis.\r\n– Gaya bahasanya ringan, ramah, seperti teman sebaya.\r\n– Sisipkan humor Islami ringan (misalnya tentang ngaji, adzan, atau masjid) tanpa menyinggung pihak mana pun.\r\n– Buat acak/berbeda setiap kali agar tidak monoton.\r\n– Panjang 1–2 kalimat saja.";
                 var partsData = Array.Empty<object>();
                 var respone = string.Empty;
 
@@ -104,8 +109,8 @@ namespace GeminiChatBot
                     var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
                     var matchedDataFiles = (await _chatBotService.GetMatchedDataFilesAsync(prompt)).ToList();
 
-                    Console.WriteLine($"Matched Links: {string.Join(", ", matchedDataLinks)}");
-                    Console.WriteLine($"Matched Files: {string.Join(", ", matchedDataFiles)}");
+                    //Console.WriteLine($"Matched Links: {string.Join(", ", matchedDataLinks)}");
+                    //Console.WriteLine($"Matched Files: {string.Join(", ", matchedDataFiles)}");
 
                     //Console.WriteLine($"Waktu setelah GetMatchedDataLinksAsync: {(DateTime.Now - startTime).TotalSeconds} detik");
 
@@ -114,6 +119,7 @@ namespace GeminiChatBot
                     //1. Can be read to .docx, .xlsx
                     if ((matchedDataLinks == null || !matchedDataLinks.Any()) && (matchedDataFiles == null || !matchedDataFiles.Any()))
                     {
+                        SourceResponse = $"\n_Source Files: Data Maslam_";
                         encodedStringData = await GetCombinedPdfBase64Async(_configuration);
                         partsData = new object[]{
                                         new { inline_data = new { mime_type = "application/pdf", data = encodedStringData } },
@@ -131,6 +137,9 @@ namespace GeminiChatBot
                         var contentFiles = string.Empty;
                         foreach (var item in matchedDataLinks)
                         {
+                            SourceResponse += $"\n_Source File: {await GetGoogleDocTitleAsync(item)}_";
+
+
                             var googleContent = await GoogleDocHelper.GetGoogleDocContentAsync(item, kotaName);
 
                             contentFiles += "\n\n" + googleContent;
@@ -138,6 +147,8 @@ namespace GeminiChatBot
 
                         foreach (var item in matchedDataFiles)
                         {
+                            SourceResponse += $"\n_Source File: {item}_";
+
                             var contentFile = await GetDocumentTextAsync(item);
 
                             contentFiles += "\n\n" + contentFile;
@@ -167,7 +178,7 @@ namespace GeminiChatBot
                 //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
 
                 string jsonPayload = JsonSerializer.Serialize(payload);
-                Console.WriteLine(jsonPayload);
+                //Console.WriteLine(jsonPayload);
 
                 using (HttpClient httpClient = new HttpClient())
                 {
@@ -216,9 +227,14 @@ namespace GeminiChatBot
                 //respone += responseBody;
                 if (string.IsNullOrEmpty(respone))
                     respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
-                
-                
+
+
+                var responseArray = respone.Split("$$^^&&");
+
                 Console.WriteLine(respone); //Response
+                if (!string.IsNullOrEmpty(SourceResponse)){ 
+                    Console.WriteLine(SourceResponse); //Response
+                }
 
                 var endTime = DateTime.Now;
                 var elapsedTime = endTime - startTime;
@@ -227,9 +243,28 @@ namespace GeminiChatBot
             }
             catch (Exception ex)
             {
-                Console.WriteLine("err : " + ex.Message + ", Sorry please ask again.");
-                Console.WriteLine("Mohon sistem tidak ");
+                //Console.WriteLine("err : " + ex.Message + ", Sorry please ask again.");
+                Console.WriteLine("Maaf, terjadi kesalahan dalam memproses permintaan Anda. Silakan coba lagi. err : " + ex.Message);
+                //Console.WriteLine("Mohon sistem tidak ");
             }
+        }
+
+        public static async Task<string> GetGoogleDocTitleAsync(string docLink)
+        {
+            if (string.IsNullOrWhiteSpace(docLink))
+                throw new ArgumentException("Google Docs link is required.", nameof(docLink));
+
+            using var http = new HttpClient();
+            var html = await http.GetStringAsync(docLink);
+
+            // Extract content between <title> and </title>
+            var match = Regex.Match(html, @"<title>(.*?)</title>", RegexOptions.Singleline);
+            if (!match.Success)
+                throw new InvalidOperationException("Could not extract document title.");
+
+            // Google Docs adds " - Google Docs" to the end of titles, so trim it
+            var title = match.Groups[1].Value.Replace(" - Google Docs", "").Trim();
+            return title;
         }
 
         // Method to combine two PDFs
@@ -265,7 +300,7 @@ namespace GeminiChatBot
             string outputPdf = Path.Combine(Path.GetTempPath(), "combined_pdf.pdf");
 
             // Local PDFs
-            string folderPath = Path.Combine(AppContext.BaseDirectory, "DataFiles");
+            string folderPath = Path.Combine(AppContext.BaseDirectory, "DataManual");
             string[] pdfFiles = Directory.GetFiles(folderPath, "*.pdf").ToArray();
 
             CombinePdfs(pdfFiles, outputPdf);
