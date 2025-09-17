@@ -175,8 +175,11 @@ async function connectToWhatsApp() {
             const chatId = jidNormalizedUser(phone);
 
             if (!fromMe && phone.endsWith("@g.us")) {
-                const tag = "@6281360019090"; // ← ganti sesuai nomor kamu
+                const tag = "@6281360019090"; // ← ganti sesuai nomor kamu, maslam
                 const tag2 = "@119662469746719";
+
+                //const tag = "@6282260091545"; // ← ganti sesuai nomor kamu, siven
+                //const tag2 = "@8603490619632";
 
                 console.log(now + " 📥 Pesan masuk dari grup:", pesan);
 

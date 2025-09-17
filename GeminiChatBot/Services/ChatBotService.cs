@@ -69,8 +69,7 @@ namespace GeminiChatBot.Services
         {
             using var conn = GetConnection();
 
-            var sql = @"SELECT chat_boths_data_id, created_by, created_date, 
-                               updated_by, last_updated, rowversion, 
+            var sql = @"SELECT chat_boths_data_id, 
                                prompt_words, data_link_online
                         FROM chat_boths_data";
 
@@ -122,8 +121,7 @@ namespace GeminiChatBot.Services
         {
             using var conn = GetConnection();
 
-            var sql = @"SELECT chat_boths_files_id, created_by, created_date, 
-                               updated_by, last_updated, rowversion, 
+            var sql = @"SELECT chat_boths_files_id,  
                                prompt_words, file_name
                         FROM chat_boths_files";
 
