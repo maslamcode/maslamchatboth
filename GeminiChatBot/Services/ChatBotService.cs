@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UglyToad.PdfPig.Content;
 
 namespace GeminiChatBot.Services
 {
@@ -77,10 +78,10 @@ namespace GeminiChatBot.Services
 
             var matchedLinks = new List<string>();
 
-            //var useAndConjunction = true;
-
             if (allData == null || !allData.Any())
                 return matchedLinks;
+
+            var words = prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var selection in allData)
             {
@@ -90,28 +91,13 @@ namespace GeminiChatBot.Services
                 var keywords = selection.prompt_words
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                //var promptLower = prompt.ToLowerInvariant();
-
-                //bool isMatch;
-                //if (useAndConjunction)
-                //{
-                //    isMatch = keywords.All(k => promptLower.Contains(k.Trim().ToLowerInvariant()));
-                //}
-                //else
-                //{
-                //    isMatch = keywords.Any(k => promptLower.Contains(k.Trim().ToLowerInvariant()));
-                //}
-
-                //if (isMatch && !matchedLinks.Contains(selection.data_link_online))
-                //{
-                //    matchedLinks.Add(selection.data_link_online);
-                //}
-
-                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+             
+                if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase))))
                 {
                     if (!matchedLinks.Contains(selection.data_link_online))
                         matchedLinks.Add(selection.data_link_online);
                 }
+
             }
 
             return matchedLinks;
@@ -132,6 +118,8 @@ namespace GeminiChatBot.Services
             if (allData == null || !allData.Any())
                 return matchedFileNames;
 
+            var words = prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
             foreach (var selection in allData)
             {
                 if (string.IsNullOrWhiteSpace(selection.prompt_words) || string.IsNullOrWhiteSpace(selection.file_name))
@@ -140,7 +128,7 @@ namespace GeminiChatBot.Services
                 var keywords = selection.prompt_words
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase))))
                 {
                     if (!matchedFileNames.Contains(selection.file_name))
                         matchedFileNames.Add(selection.file_name);
