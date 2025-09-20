@@ -92,7 +92,8 @@ namespace GeminiChatBot.Services
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
              
-                if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase))))
+                //if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase)))) //TODO - SOON
+                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 {
                     if (!matchedLinks.Contains(selection.data_link_online))
                         matchedLinks.Add(selection.data_link_online);
@@ -128,9 +129,10 @@ namespace GeminiChatBot.Services
                 var keywords = selection.prompt_words
                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-                if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase))))
+                //if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase)))) //TODO - SOON
+                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
                 {
-                    if (!matchedFileNames.Contains(selection.file_name))
+                        if (!matchedFileNames.Contains(selection.file_name))
                         matchedFileNames.Add(selection.file_name);
                 }
             }
