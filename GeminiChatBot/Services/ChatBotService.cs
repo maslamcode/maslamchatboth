@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using UglyToad.PdfPig.Content;
 
@@ -81,7 +82,10 @@ namespace GeminiChatBot.Services
             if (allData == null || !allData.Any())
                 return matchedLinks;
 
-            var words = prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var promptWords = Regex.Split(prompt, @"\W+")
+                                  .Where(w => !string.IsNullOrWhiteSpace(w))
+                                  .Select(w => w.ToLowerInvariant())
+                                  .ToHashSet();
 
             foreach (var selection in allData)
             {
@@ -89,15 +93,34 @@ namespace GeminiChatBot.Services
                     continue;
 
                 var keywords = selection.prompt_words
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(k => k.ToLowerInvariant());
 
-             
                 //if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase)))) //TODO - SOON
-                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                //if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                //{
+                //    if (!matchedLinks.Contains(selection.data_link_online))
+                //        matchedLinks.Add(selection.data_link_online);
+                //}
+
+                bool matched = keywords.Any(k =>
                 {
-                    if (!matchedLinks.Contains(selection.data_link_online))
-                        matchedLinks.Add(selection.data_link_online);
-                }
+                    // Escape regex characters
+                    var escaped = Regex.Escape(k);
+
+                    // If the keyword contains a space, just search the whole phrase (ignore case)
+                    if (k.Contains(' ', StringComparison.Ordinal))
+                    {
+                        return Regex.IsMatch(prompt, escaped, RegexOptions.IgnoreCase);
+                    }
+                    else
+                    {
+                        // Single word: match as whole word with \b boundaries
+                        return Regex.IsMatch(prompt, $@"\b{escaped}\b", RegexOptions.IgnoreCase);
+                    }
+                });
+
+                if (matched && !matchedLinks.Contains(selection.data_link_online))
+                    matchedLinks.Add(selection.data_link_online);
 
             }
 
@@ -119,7 +142,11 @@ namespace GeminiChatBot.Services
             if (allData == null || !allData.Any())
                 return matchedFileNames;
 
-            var words = prompt.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var promptWords = Regex.Split(prompt, @"\W+")
+                                   .Where(w => !string.IsNullOrWhiteSpace(w))
+                                   .Select(w => w.ToLowerInvariant())
+                                   .ToHashSet();
+            
 
             foreach (var selection in allData)
             {
@@ -127,14 +154,40 @@ namespace GeminiChatBot.Services
                     continue;
 
                 var keywords = selection.prompt_words
-                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(k => k.ToLowerInvariant());
+
+
+                //I have the issue here, if the prompt is "Apa itu product line", so on database have 2 records, the keywords 1: "product line, product abaga", keywords 2: "PR, Ziswaf"
+                //With the currently the prompt "Apa itu product line" will match both records, because "PR" is part of "product line", I want only match the first record, PR not include
 
                 //if (keywords.Any(k => words.Any(w => string.Equals(w, k, StringComparison.OrdinalIgnoreCase)))) //TODO - SOON
-                if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                //if (keywords.Any(k => prompt.Contains(k, StringComparison.OrdinalIgnoreCase)))
+                //{
+                //    if (!matchedFileNames.Contains(selection.file_name))
+                //        matchedFileNames.Add(selection.file_name);
+                //}
+
+                bool matched = keywords.Any(k =>
                 {
-                        if (!matchedFileNames.Contains(selection.file_name))
-                        matchedFileNames.Add(selection.file_name);
-                }
+                    // Escape regex characters
+                    var escaped = Regex.Escape(k);
+
+                    // If the keyword contains a space, just search the whole phrase (ignore case)
+                    if (k.Contains(' ', StringComparison.Ordinal))
+                    {
+                        return Regex.IsMatch(prompt, escaped, RegexOptions.IgnoreCase);
+                    }
+                    else
+                    {
+                        // Single word: match as whole word with \b boundaries
+                        return Regex.IsMatch(prompt, $@"\b{escaped}\b", RegexOptions.IgnoreCase);
+                    }
+                });
+
+                if (matched && !matchedFileNames.Contains(selection.file_name))
+                    matchedFileNames.Add(selection.file_name);
+
+
             }
 
             return matchedFileNames;
