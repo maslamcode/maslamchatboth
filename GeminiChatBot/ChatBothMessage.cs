@@ -9,6 +9,7 @@ using GeminiChatBot.Helper;
 using UglyToad.PdfPig.Content;
 using System.Text.RegularExpressions;
 using System.Net.NetworkInformation;
+using System.Globalization;
 
 namespace GeminiChatBot
 {
@@ -220,8 +221,73 @@ namespace GeminiChatBot
 
                     //Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
 
-                    // Read and output the response
                     string responseBody = await response.Content.ReadAsStringAsync();
+
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        string retryAfterHeader = response.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
+
+                        string pesanUntukPengguna;
+
+                        string FormatWaktu(double totalSeconds)
+                        {
+                            int totalDetik = (int)Math.Ceiling(totalSeconds);
+                            int jam = totalDetik / 3600;
+                            int menit = (totalDetik % 3600) / 60;
+                            int detik = totalDetik % 60;
+
+                            if (jam > 0)
+                            {
+                                return $"{jam} jam {menit} menit {detik} detik";
+                            }
+                            else if (menit > 0)
+                            {
+                                return $"{menit} menit {detik} detik";
+                            }
+                            else
+                            {
+                                return $"{detik} detik";
+                            }
+                        }
+
+                        double? waitSeconds = null;
+
+                        if (int.TryParse(retryAfterHeader, out int retryAfterSeconds))
+                        {
+                            waitSeconds = retryAfterSeconds;
+                        }
+                        else
+                        {
+                            using var doc = JsonDocument.Parse(responseBody);
+                            foreach (var detail in doc.RootElement.GetProperty("error").GetProperty("details").EnumerateArray())
+                            {
+                                if (detail.TryGetProperty("@type", out var typeEl) &&
+                                    typeEl.GetString() == "type.googleapis.com/google.rpc.RetryInfo" &&
+                                    detail.TryGetProperty("retryDelay", out var retryDelayEl))
+                                {
+                                    var retryDelayStr = retryDelayEl.GetString();
+                                    if (!string.IsNullOrEmpty(retryDelayStr) && retryDelayStr.EndsWith("s") &&
+                                        double.TryParse(retryDelayStr.TrimEnd('s'), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds))
+                                    {
+                                        waitSeconds = seconds;
+                                    }
+                                }
+                            }
+                        }
+
+                        if (waitSeconds.HasValue)
+                        {
+                            pesanUntukPengguna = $"Mohon maaf, permintaan anda saat ini melebihi batas. Silakan coba lagi dalam {FormatWaktu(waitSeconds.Value)}.";
+                        }
+                        else
+                        {
+                            pesanUntukPengguna = "Mohon maaf, permintaan anda saat ini melebihi batas. Silakan coba lagi beberapa saat lagi.";
+                        }
+
+                        Console.WriteLine(pesanUntukPengguna);
+                        return;
+                    }
+
                     //Console.WriteLine("responseBody:", responseBody);
                     // Optionally parse and extract specific parts of the response
                     using (JsonDocument jsonDoc = JsonDocument.Parse(responseBody))
@@ -263,7 +329,8 @@ namespace GeminiChatBot
                 var responseArray = respone.Split("$$^^&&");
 
                 Console.WriteLine(respone); //Response
-                if (!string.IsNullOrEmpty(SourceResponse)){ 
+                if (!string.IsNullOrEmpty(SourceResponse))
+                {
                     Console.WriteLine(SourceResponse); //Response
                 }
 
