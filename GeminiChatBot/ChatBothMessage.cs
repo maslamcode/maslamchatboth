@@ -254,8 +254,11 @@ namespace GeminiChatBot
 
                 //respone += responseBody;
                 if (string.IsNullOrEmpty(respone))
+                {
                     respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
-
+                    Console.WriteLine(respone);
+                    return;
+                }
 
                 var responseArray = respone.Split("$$^^&&");
 
