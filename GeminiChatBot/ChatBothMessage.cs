@@ -39,24 +39,24 @@ namespace GeminiChatBot
 
         public static async Task sentMessage(string prompt)
         {
-            await _googleDriveService.InitializeAsync();
+            //await _googleDriveService.InitializeAsync();
 
-            string folderId = "1Rv9gKEqSblYb9YevE00YYdHVBHlt2IuC";
-            string downloadFolder = Path.Combine(Directory.GetCurrentDirectory(), "GoogleDrive");
-            Directory.CreateDirectory(downloadFolder);
+            //string folderId = "1Rv9gKEqSblYb9YevE00YYdHVBHlt2IuC";
+            //string downloadFolder = Path.Combine(Directory.GetCurrentDirectory(), "GoogleDrive");
+            //Directory.CreateDirectory(downloadFolder);
 
-            var files = await _googleDriveService.ReadAllFilesAsync(folderId, downloadFolder);
+            //var files = await _googleDriveService.ReadAllFilesAsync(folderId, downloadFolder);
 
-            foreach (var file in files)
-            {
-                Console.WriteLine($"Name: {file.Name}, Size: {file.Size}, Type: {file.MimeType}");
-                if (!string.IsNullOrEmpty(file.Content))
-                {
-                    Console.WriteLine($"--- Content Preview ---\n{file.Content[..Math.Min(200, file.Content.Length)]}\n");
-                }
-            }
+            //foreach (var file in files)
+            //{
+            //    Console.WriteLine($"Name: {file.Name}, Size: {file.Size}, Type: {file.MimeType}");
+            //    if (!string.IsNullOrEmpty(file.Content))
+            //    {
+            //        Console.WriteLine($"--- Content Preview ---\n{file.Content[..Math.Min(200, file.Content.Length)]}\n");
+            //    }
+            //}
 
-            return;
+            //return;
 
             SourceResponse = string.Empty;
             var startTime = DateTime.Now;
@@ -64,14 +64,6 @@ namespace GeminiChatBot
             {
                 var listTag = string.Empty;
                 var promptData = string.Empty;
-
-                MyDbContext context = null;
-                var responseGreetings = await _chatBotService.HandlePromptGreetingsAsync(prompt);
-                if (!string.IsNullOrEmpty(responseGreetings))
-                {
-                    Console.WriteLine(responseGreetings);
-                    return;
-                }
 
                 string geminiVersion = _configuration["Config:geminVersi"];
                 string googleApiKey = _configuration["Config:googleApiKey"];
