@@ -166,9 +166,7 @@ async function connectToWhatsApp() {
                 console.log("📄 Key payload:", message.message.senderKeyDistributionMessage);
             }
 
-            const pesan =
-                message.message?.extendedTextMessage?.text ||
-                message.message?.conversation;
+            const pesan = getPesan(message);
 
             const phone = message.key.remoteJid;
             const fromMe = message.key.fromMe;
@@ -192,46 +190,109 @@ async function connectToWhatsApp() {
                         .replace(tag2, "")
                         .trim();
 
-                    console.log(now + " 📥 Pesan (clean):", cleanPesan);
+                    await handleMessage(socket, phone, chatId, cleanPesan, message);
 
-                    try {
-                        console.log(now + " 📤 Mengirim pesan ke C#...");
-                        let response = await sentToCSharp(cleanPesan);
-
-                        if (!response || !response.trim()) {
-                            response = "⚠️ Tidak ada balasan dari bot.";
-                        }
-
-                        console.log(now + " 📤 Target:", phone, "→", chatId);
-
-                        const sendResult = await safeSend(
-                            socket,
-                            phone,
-                            { text: response },
-                            { quoted: message }
-                        );
-
-                        console.log(now + " ✅ Pesan terkirim:", response);
-                        console.log("📬 Send result:", sendResult);
-                    } catch (err) {
-                        console.error(now + " ❌ Error while processing message:", err);
-                        try {
-                            await safeSend(socket, phone, {
-                                text: "Maaf, terjadi kesalahan saat memproses pesan.",
-                            });
-                        } catch (sendErr) {
-                            console.error("❌ Gagal mengirim pesan error:", sendErr);
-                        }
-                    }
                 }
-            } else {
-                console.log(now + " 📥 Pesan masuk (bukan grup):", pesan);
+            }
+            else if (!fromMe && !phone.endsWith("@g.us")) {
+                // --- CHAT PERSONAL ---
+                console.log(now + " 📥 Pesan personal:", pesan);
+                await handleMessage(socket, phone, chatId, pesan, message);
+            }
+            else {
+                console.log(now + " 📥 Pesan masuk (lainnya):", pesan);
             }
         } catch (err) {
             console.error(now + " ❌ Error while processing message:", err);
         }
     });
 
+}
+function getPesan(message) {
+    if (!message.message) {
+        console.log("⚠️ Tidak ada message.message");
+        return "";
+    }
+
+    let text = "";
+
+    if (message.message.conversation) {
+        text = message.message.conversation;
+        console.log("✅ Pesan dari message.conversation:", text);
+        return text;
+    }
+
+    if (message.message.extendedTextMessage?.text) {
+        text = message.message.extendedTextMessage.text;
+        console.log("✅ Pesan dari message.extendedTextMessage.text:", text);
+        return text;
+    }
+
+    if (message.message.imageMessage?.caption) {
+        text = message.message.imageMessage.caption;
+        console.log("✅ Pesan dari message.imageMessage.caption:", text);
+        return text;
+    }
+
+    if (message.message.videoMessage?.caption) {
+        text = message.message.videoMessage.caption;
+        console.log("✅ Pesan dari message.videoMessage.caption:", text);
+        return text;
+    }
+
+    if (message.message.ephemeralMessage?.message?.conversation) {
+        text = message.message.ephemeralMessage.message.conversation;
+        console.log("✅ Pesan dari ephemeralMessage.message.conversation:", text);
+        return text;
+    }
+
+    if (message.message.ephemeralMessage?.message?.extendedTextMessage?.text) {
+        text = message.message.ephemeralMessage.message.extendedTextMessage.text;
+        console.log("✅ Pesan dari ephemeralMessage.message.extendedTextMessage.text:", text);
+        return text;
+    }
+
+    console.log("⚠️ Tidak menemukan teks di struktur message:", JSON.stringify(message, null, 2));
+    return "";
+}
+
+async function handleMessage(socket, phone, chatId, pesan, message) {
+    const now = new Date();
+
+    if (!pesan || pesan.trim().length === 0) {
+        console.log(now + " ⚠️ Pesan kosong, diabaikan.");
+        return;
+    }
+
+    try {
+        console.log(now + " 📤 Mengirim pesan ke C#...");
+        let response = await sentToCSharp(pesan);
+
+        if (!response || !response.trim()) {
+            response = "⚠️ Tidak ada balasan dari bot.";
+        }
+
+        console.log(now + " 📤 Target:", phone, "→", chatId);
+
+        const sendResult = await safeSend(
+            socket,
+            phone,
+            { text: response },
+            { quoted: message }
+        );
+
+        console.log(now + " ✅ Pesan terkirim:", response);
+        console.log("📬 Send result:", sendResult);
+    } catch (err) {
+        console.error(now + " ❌ Error while processing message:", err);
+        try {
+            await safeSend(socket, phone, {
+                text: "Maaf, terjadi kesalahan saat memproses pesan.",
+            });
+        } catch (sendErr) {
+            console.error("❌ Gagal mengirim pesan error:", sendErr);
+        }
+    }
 }
 
 async function sentToCSharp(text) {

@@ -34,7 +34,7 @@ namespace GeminiChatBot
 
             _chatBotService = new ChatBotService(_configuration);
             _sholatService = new SholatService(_configuration);
-            _googleDriveService = new GoogleDriveService();
+            //_googleDriveService = new GoogleDriveService();
         }
 
         public static async Task sentMessage(string prompt)
