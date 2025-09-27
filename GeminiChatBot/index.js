@@ -181,11 +181,29 @@ async function connectToWhatsApp() {
 
                 console.log(now + " 📥 Pesan masuk dari grup:", pesan);
 
-                if (
+                const keywords = [
+                    "sami",
+                    "perkenalkan",
+                    "kenalkan",
+                    "kenalin",
+                    "assalamu'alaykum",
+                    "assalamualaikum",
+                    "assalamu'alaikum",
+                ];
+
+                const pesanLower = (pesan || "").toLowerCase();
+
+                const mentionTriggered =
                     (pesan && pesan.includes(tag)) ||
-                    (pesan && pesan.includes(tag2))
-                ) {
-                    const cleanPesan = pesan
+                    (pesan && pesan.includes(tag2));
+
+                const keywordTriggered = keywords.some(word =>
+                    pesanLower.split(/\s+/).includes(word.toLowerCase())
+                );
+
+
+                if (mentionTriggered || keywordTriggered) {
+                    const cleanPesan = (pesan || "")
                         .replace(tag, "")
                         .replace(tag2, "")
                         .trim();
