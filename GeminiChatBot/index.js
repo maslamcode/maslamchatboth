@@ -189,13 +189,23 @@ async function connectToWhatsApp() {
                     "assalamu'alaykum",
                     "assalamualaikum",
                     "assalamu'alaikum",
+                    "bertanya",
+                    "tanya",
+                    "nanya",
+                    "maslam",
                 ];
 
-                const pesanLower = (pesan || "").toLowerCase();
+                const cleanText = (pesan || "")
+                    .normalize("NFKD")                
+                    .replace(/[^\p{L}\p{N}\s]/gu, "")
+                    .toLowerCase();
+
+
+                const pesanLower = (cleanText || "").toLowerCase();
 
                 const mentionTriggered =
-                    (pesan && pesan.includes(tag)) ||
-                    (pesan && pesan.includes(tag2));
+                    (cleanText && cleanText.includes(tag)) ||
+                    (cleanText && cleanText.includes(tag2));
 
                 const keywordTriggered = keywords.some(word =>
                     pesanLower.split(/\s+/).includes(word.toLowerCase())
@@ -203,7 +213,7 @@ async function connectToWhatsApp() {
 
 
                 if (mentionTriggered || keywordTriggered) {
-                    const cleanPesan = (pesan || "")
+                    const cleanPesan = (cleanText || "")
                         .replace(tag, "")
                         .replace(tag2, "")
                         .trim();
