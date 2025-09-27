@@ -274,8 +274,20 @@ function getPesan(message) {
     return "";
 }
 
+const processedMessages = new Set();
+
 async function handleMessage(socket, phone, chatId, pesan, message) {
     const now = new Date();
+
+    const messageId = message?.key?.id || `${phone}-${now.getTime()}`;
+
+    if (processedMessages.has(messageId)) {
+        console.log(now + " ⚠️ Duplicate message detected, skipped:", messageId);
+        return;
+    }
+    processedMessages.add(messageId);
+
+    setTimeout(() => processedMessages.delete(messageId), 60 * 1000); // 1 min keep
 
     if (!pesan || pesan.trim().length === 0) {
         console.log(now + " ⚠️ Pesan kosong, diabaikan.");

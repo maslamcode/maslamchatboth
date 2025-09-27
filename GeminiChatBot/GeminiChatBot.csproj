@@ -10,16 +10,12 @@
 
   <ItemGroup>
     <None Remove="DataManual\data maslam.pdf" />
-    <None Remove="index.js" />
     <None Remove="PdfInput" />
     <None Remove="Tes" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="DataManual\data maslam.pdf">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
-    <Content Include="index.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -53,6 +49,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\_Manual Guide - Distribution - PO - Purchase Order (Approval).pdf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="index.js">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
