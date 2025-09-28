@@ -67,7 +67,10 @@ namespace GeminiChatBot
 
                 string geminiVersion = _configuration["Config:geminVersi"];
                 string googleApiKey = _configuration["Config:googleApiKey"];
-                string provision = _configuration["Config:provision"];
+
+                string[] provisionsArray = _configuration.GetSection("Config:provision").Get<string[]>();
+
+                string provision = string.Join(Environment.NewLine, provisionsArray);
 
                 var partsData = Array.Empty<object>();
                 var respone = string.Empty;

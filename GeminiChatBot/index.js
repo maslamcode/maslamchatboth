@@ -204,8 +204,8 @@ async function connectToWhatsApp() {
                 const pesanLower = (cleanText || "").toLowerCase();
 
                 const mentionTriggered =
-                    (cleanText && cleanText.includes(tag)) ||
-                    (cleanText && cleanText.includes(tag2));
+                    (pesan && pesan.includes(tag)) ||
+                    (pesan && pesan.includes(tag2));
 
                 const keywordTriggered = keywords.some(word =>
                     pesanLower.split(/\s+/).includes(word.toLowerCase())
