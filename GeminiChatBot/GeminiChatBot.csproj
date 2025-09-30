@@ -56,8 +56,4 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="fz3-17588101396400\" />
-  </ItemGroup>
-
 </Project>

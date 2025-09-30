@@ -11,11 +11,14 @@ const fs = require("fs");
 const qrcode = require("qrcode-terminal");
 const path = require("path");
 
+let waSocket = null; // general holder
 
 // ==== Express API ====
 const express = require("express");
 const multer = require("multer");
 const API_KEY = "TCH0qIeozGfEkHGOSZuaYJaI3GKjylsnjnwiFMRPmltSsPRbhpyBatvzhYeHco9NnZXSxp628cAZrx5EkInTUqOb7LXBNkECgZFtJDnt07mVyarrAGwGH4W37cKzlSi3";
+
+
 
 function checkApiKey(req, res, next) {
     const key = req.headers["x-api-key"];
@@ -63,6 +66,20 @@ app.delete("/files/:name", checkApiKey, (req, res) => {
 });
 
 
+app.post("/broadcast", checkApiKey, async (req, res) => {
+    const { message } = req.body;
+    if (!message) {
+        return res.status(400).json({ error: "Message required" });
+    }
+    try {
+        await broadcastToAllGroups(waSocket, message);
+        res.json({ message: "======= Broadcast sent" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 app.listen(port, () => {
     console.log(`📡 File API running at http://localhost:${port}`);
 });
@@ -97,6 +114,8 @@ async function connectToWhatsApp() {
         browser: ["Mac OS", "Safari", "16.0"],
     });
 
+    waSocket = socket;
+
     socket.ev.on("creds.update", saveCreds);
 
     socket.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
@@ -114,6 +133,18 @@ async function connectToWhatsApp() {
 
             try {
                 const groups = await socket.groupFetchAllParticipating();
+                const simplifiedGroups = {};
+
+                for (const id in groups) {
+                    const metadata = groups[id];
+                    simplifiedGroups[id] = {
+                        id,
+                        name: metadata.subject
+                    };
+                }
+
+                saveGroupsToFile(simplifiedGroups);
+
                 for (const id in groups) {
                     const metadata = groups[id];
                     console.log("📌 Prewarming session grup:", metadata.subject);
@@ -358,6 +389,48 @@ async function sentToCSharp(text) {
         });
     });
 }
+
+function saveGroupsToFile(groups) {
+    const filePath = path.join(__dirname, "groups.json");
+    try {
+        fs.writeFileSync(filePath, JSON.stringify(groups, null, 2));
+        console.log("====== Groups saved to", filePath);
+    } catch (err) {
+        console.error("xxxxxx Failed to save groups:", err);
+    }
+}
+
+function loadGroupsFromFile() {
+    const filePath = path.join(__dirname, "groups.json");
+    if (fs.existsSync(filePath)) {
+        return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    }
+    return {};
+}
+
+async function broadcastToAllGroups(socket, messageText) {
+    if (!socket) {
+        console.error("xxxxxx Socket is not connected!");
+        return;
+    }
+
+    const groups = loadGroupsFromFile();
+    const groupIds = Object.keys(groups);
+
+    console.log(" ====== Broadcasting to", groupIds.length, "groups...");
+
+    for (const groupId of groupIds) {
+        try {
+            await safeSend(socket, groupId, { text: messageText });
+            console.log("====== Sent to:", groups[groupId].name, `(${groupId})`);
+            await delay(1500);
+        } catch (err) {
+            console.error("xxxxxx Failed to send to", groupId, ":", err.message);
+        }
+    }
+}
+
+
 
 // 🟢 Start app
 (async () => {
