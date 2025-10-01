@@ -72,7 +72,7 @@ app.post("/broadcast", checkApiKey, async (req, res) => {
         return res.status(400).json({ error: "Message required" });
     }
     try {
-        await broadcastToAllGroups(waSocket, message);
+        await broadcastToAllGroups(waSocket, message); 
         res.json({ message: "======= Broadcast sent" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -266,6 +266,23 @@ async function connectToWhatsApp() {
         }
     });
 
+    //Greeting jika ada yang masuk grup ---------------------------------
+    socket.ev.on("group-participants.update", async (update) => {
+        try {
+            if (update.action === "add") {
+                console.log(" 📥 Ada member baru");
+                const metadata = await socket.groupMetadata(update.id);
+                for (let participant of update.participants) {
+                    await socket.sendMessage(update.id, {
+                        text: `👋 Assalamualaikum @${participant.split("@")[0]}, selamat datang di *${metadata.subject}*!`,
+                        mentions: [participant],
+                    });
+                }
+            }
+        } catch (err) {
+            console.error("❌ Error welcome message:", err);
+        }
+    });
 }
 function getPesan(message) {
     if (!message.message) {
@@ -345,12 +362,22 @@ async function handleMessage(socket, phone, chatId, pesan, message) {
 
         console.log(now + " 📤 Target:", phone, "→", chatId);
 
+        //menambahkan mention user -----------------------
+        const sender = message.key.participant || message.key.remoteJid;
+        const mentionId = sender.endsWith("@s.whatsapp.net") ? sender : chatId;
+        const senderId = message.key.participant || message.key.remoteJid;
+        const senderName = message.pushName || senderId.split("@")[0]; 
+
         const sendResult = await safeSend(
-            socket,
-            phone,
-            { text: response },
-            { quoted: message }
+            socket, 
+            phone, 
+            {
+                text: `Terima kasih sudah menghubungi, Bapak/Ibu ${senderName}.\n\n ${response}`,
+                mentions: [mentionId]
+            }, 
+            { quoted: message } 
         );
+        //------------------------------------------------
 
         console.log(now + " ✅ Pesan terkirim:", response);
         console.log("📬 Send result:", sendResult);
