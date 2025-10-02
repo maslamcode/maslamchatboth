@@ -1,4 +1,7 @@
 ﻿using GeminiChatBot;
+using GeminiChatBot.Models;
+using GeminiChatBot.Services;
+using Microsoft.Extensions.Configuration;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using System;
@@ -17,15 +20,50 @@ class Program
             {
                 if (args[0].Equals("upload", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Example: dotnet run upload path/to/file.png
                     if (args.Length < 2)
                     {
-                        Console.WriteLine("⚠️ Please provide a file path for upload.");
+                        Console.WriteLine("Please provide a file path for upload.");
                         return;
                     }
 
                     string filePath = args[1];
                     await UploadFile(filePath);
+                }
+                else if (args[0].Equals("group-bulk-insert", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (args.Length < 2)
+                    {
+                        Console.WriteLine("Usage: group-bulk-insert '<jsonString>'");
+                        return;
+                    }
+
+                    string json = args[1];
+                    var groups = JsonSerializer.Deserialize<List<ChatBotGroupModel>>(json);
+
+                    if (groups == null || groups.Count == 0)
+                    {
+                        Console.WriteLine("No groups provided.");
+                        return;
+                    }
+
+                    var service = new ChatBotGroupService(new ConfigurationBuilder()
+                        .AddJsonFile("appsettings.json")
+                        .Build());
+
+                    int totalInserted = 0;
+
+                    foreach (var g in groups)
+                    {
+                        g.chatbot_group_id = Guid.NewGuid();
+                        g.is_receive_broadcast = false;
+                        g.created_date = DateTime.UtcNow;
+                        g.last_updated = DateTime.UtcNow;
+                        g.rowversion = DateTime.UtcNow;
+
+                        totalInserted += await service.InsertGroupAsync(g);
+                    }
+
+                    Console.WriteLine($"Bulk insert completed. {totalInserted} groups inserted.");
                 }
                 else
                 {
@@ -33,7 +71,8 @@ class Program
                     await ChatBothMessage.sentMessage(prompt);
                 }
             }
-            else {
+            else
+            {
                 while (true)
                 {
                     Console.WriteLine("Masukkan prompt (ketik 'exit' untuk keluar):");

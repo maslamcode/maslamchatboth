@@ -133,17 +133,19 @@ async function connectToWhatsApp() {
 
             try {
                 const groups = await socket.groupFetchAllParticipating();
-                const simplifiedGroups = {};
+               
+                const simplifiedGroups = [];
 
                 for (const id in groups) {
                     const metadata = groups[id];
-                    simplifiedGroups[id] = {
-                        id,
-                        name: metadata.subject
-                    };
+                    simplifiedGroups.push({
+                        group_id: id,
+                        group_name: metadata.subject
+                    });
                 }
 
-                saveGroupsToFile(simplifiedGroups);
+                const response = await bulkInsertGroupsToCSharp(simplifiedGroups);
+                console.log("📥 Groups bulk insert response:", response);
 
                 for (const id in groups) {
                     const metadata = groups[id];
@@ -413,6 +415,33 @@ async function sentToCSharp(text) {
             } else {
                 reject(`C# process exited with code ${code}`);
             }
+        });
+    });
+}
+
+
+async function bulkInsertGroupsToCSharp(groups) {
+    return new Promise((resolve, reject) => {
+        const jsonString = JSON.stringify(groups);
+
+        const process = spawn("dotnet", [
+            "GeminiChatBot.dll",
+            "group-bulk-insert",
+            jsonString
+        ]);
+
+        let result = "";
+
+        process.stdout.on("data", (data) => {
+            result += data.toString();
+        });
+
+        process.stderr.on("data", (data) => {
+            console.error("C# Error:", data.toString());
+        });
+
+        process.on("close", (code) => {
+            resolve(result.trim());
         });
     });
 }
