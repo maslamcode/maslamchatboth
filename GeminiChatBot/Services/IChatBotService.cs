@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace GeminiChatBot.Services
 {
-    public interface IChatBotService
+    public interface IChatbotService
     {
         Task<string> HandlePromptGreetingsAsync(string prompt);
         Task<IEnumerable<string>> GetMatchedDataLinksAsync(string prompt);

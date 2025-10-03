@@ -43,7 +43,7 @@ app.MapPost("/webhook", async (HttpContext context) =>
             //Console.WriteLine("Tag: " + tags);
             //Console.WriteLine("Received Webhook Raw Data: " + requestBody);
             Console.WriteLine("Received Webhook Data: " + msisdn + ":" + messageText);
-            var respone = await ChatBothMessage.sentMessage(messageText);
+            var respone = await ChatbotMessage.sentMessage(messageText);
             IMessageBird watzap = new MessageBird();
             var responeWA = await watzap.sendMessage(msisdn, respone);
             Console.WriteLine("Respone AI: " + respone);

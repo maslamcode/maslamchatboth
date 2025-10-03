@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace GeminiChatBot.Models
 {
-    public class ChatBothsDataModel
+    public class ChatbotDataModel
     {
-        public Guid chat_boths_data_id { get; set; }
+        public Guid chatbot_data_id { get; set; }
         public Guid created_by { get; set; }
         public DateTime created_date { get; set; }
         public Guid updated_by { get; set; }
@@ -18,9 +18,9 @@ namespace GeminiChatBot.Models
         public string data_link_online { get; set; }
     }
 
-    public class ChatBothsFileModel
+    public class ChatbotFileModel
     {
-        public Guid chat_boths_data_id { get; set; }
+        public Guid chatbot_data_id { get; set; }
         public Guid created_by { get; set; }
         public DateTime created_date { get; set; }
         public Guid updated_by { get; set; }

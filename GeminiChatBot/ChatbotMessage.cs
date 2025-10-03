@@ -13,26 +13,26 @@ using System.Globalization;
 
 namespace GeminiChatBot
 {
-    public class ChatBothMessage
+    public class ChatbotMessage
     {
         private static string _cachedEncodedPdf = null;
         private static DateTime _lastCacheTime;
         private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(30);
 
-        private static IChatBotService _chatBotService;
+        private static IChatbotService _chatBotService;
         private static ISholatService _sholatService;
         private static IGoogleDriveService _googleDriveService;
         private static IConfiguration _configuration;
 
         private static string SourceResponse = string.Empty;
-        static ChatBothMessage()
+        static ChatbotMessage()
         {
             _configuration = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .Build();
 
-            _chatBotService = new ChatBotService(_configuration);
+            _chatBotService = new ChatbotService(_configuration);
             _sholatService = new SholatService(_configuration);
             //_googleDriveService = new GoogleDriveService();
         }

@@ -21,7 +21,7 @@ namespace GeminiChatBot.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("GeminiChatBot.ChatBoths", b =>
+            modelBuilder.Entity("GeminiChatBot.Chatbot", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()

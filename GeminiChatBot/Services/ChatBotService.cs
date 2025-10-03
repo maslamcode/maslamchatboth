@@ -12,12 +12,12 @@ using UglyToad.PdfPig.Content;
 
 namespace GeminiChatBot.Services
 {
-    public class ChatBotService: IChatBotService
+    public class ChatbotService: IChatbotService
     {
         private readonly string _connectionString;
         private readonly IConfiguration _config;
 
-        public ChatBotService(IConfiguration config)
+        public ChatbotService(IConfiguration config)
         {
             _config = config;
             _connectionString = _config.GetConnectionString("PostgreSqlConnection") ?? throw new ArgumentNullException("Connection string 'PostgreSqlConnection' not found.");
@@ -28,14 +28,14 @@ namespace GeminiChatBot.Services
         private async Task<IEnumerable<string>> GetGreetingResponsesAsync()
         {
             using var conn = GetConnection();
-            var sql = "SELECT tag_message FROM public.chat_boths_respone WHERE type = 1";
+            var sql = "SELECT tag_message FROM chatbot.chatbot_respone WHERE type = 1";
             return await conn.QueryAsync<string>(sql);
         }
 
         private async Task<IEnumerable<string>> GetSayHaiResponsesAsync()
         {
             using var conn = GetConnection();
-            var sql = "SELECT tag_message FROM public.chat_boths_respone WHERE type = 2 ORDER BY \"order\"";
+            var sql = "SELECT tag_message FROM chatbot.chatbot_respone WHERE type = 2 ORDER BY \"order\"";
             return await conn.QueryAsync<string>(sql);
         }
 
@@ -71,11 +71,11 @@ namespace GeminiChatBot.Services
         {
             using var conn = GetConnection();
 
-            var sql = @"SELECT chat_boths_data_id, 
+            var sql = @"SELECT chatbot_data_id, 
                                prompt_words, data_link_online
-                        FROM chat_boths_data";
+                        FROM chatbot.chatbot_data";
 
-            var allData = await conn.QueryAsync<ChatBothsDataModel>(sql);
+            var allData = await conn.QueryAsync<ChatbotDataModel>(sql);
 
             var matchedLinks = new List<string>();
 
@@ -131,11 +131,11 @@ namespace GeminiChatBot.Services
         {
             using var conn = GetConnection();
 
-            var sql = @"SELECT chat_boths_files_id,  
+            var sql = @"SELECT chatbot_files_id,  
                                prompt_words, file_name
-                        FROM chat_boths_files";
+                        FROM chatbot.chatbot_files";
 
-            var allData = await conn.QueryAsync<ChatBothsFileModel>(sql);
+            var allData = await conn.QueryAsync<ChatbotFileModel>(sql);
 
             var matchedFileNames = new List<string>();
 

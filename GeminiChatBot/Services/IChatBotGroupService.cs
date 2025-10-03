@@ -7,12 +7,12 @@ using System.Threading.Tasks;
 
 namespace GeminiChatBot.Services
 {
-    public interface IChatBotGroupService
+    public interface IChatbotGroupService
     {
-        Task<IEnumerable<ChatBotGroupModel>> GetAllGroupsAsync();
-        Task<ChatBotGroupModel?> GetGroupByIdAsync(Guid chatbotGroupId);
-        Task<int> InsertGroupAsync(ChatBotGroupModel model);
-        Task<int> UpdateGroupAsync(ChatBotGroupModel model);
+        Task<IEnumerable<ChatbotGroupModel>> GetAllGroupsAsync();
+        Task<ChatbotGroupModel?> GetGroupByIdAsync(Guid chatbotGroupId);
+        Task<int> InsertGroupAsync(ChatbotGroupModel model);
+        Task<int> UpdateGroupAsync(ChatbotGroupModel model);
         Task<int> DeleteGroupAsync(Guid chatbotGroupId);
 
     }

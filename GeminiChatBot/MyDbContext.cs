@@ -19,8 +19,8 @@ namespace GeminiChatBot
             optionsBuilder.UseNpgsql(_connectionString);
         }
         // Define your DbSets (tables)
-        public DbSet<ChatBoths> ChatBoths { get; set; }
-        public DbSet<ChatBothResponses> ChatBothResponses { get; set; }
+        public DbSet<Chatbot> Chatbot { get; set; }
+        public DbSet<ChatbotResponses> ChatbotResponses { get; set; }
         public DbSet<Configs> Configs { get; set; }
         public DbSet<JadwalShalat> JadwalShalats { get; set; }
         public DbSet<Kota> Kotas { get; set; }
@@ -35,15 +35,15 @@ namespace GeminiChatBot
 
 
     [Table("chat_boths", Schema = "public")]
-    public class ChatBoths
+    public class Chatbot
     {
         [Key]
         public int Id { get; set; }
         public string? tag_message { get; set; }
     }
 
-    [Table("chat_boths_respone", Schema = "public")]
-    public class ChatBothResponses
+    [Table("chatbot_respone", Schema = "public")]
+    public class ChatbotResponses
     {
         [Key]
         public int Id { get; set; }

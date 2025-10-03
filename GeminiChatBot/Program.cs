@@ -38,7 +38,7 @@ class Program
                     }
 
                     string json = args[1];
-                    var groups = JsonSerializer.Deserialize<List<ChatBotGroupModel>>(json);
+                    var groups = JsonSerializer.Deserialize<List<ChatbotGroupModel>>(json);
 
                     if (groups == null || groups.Count == 0)
                     {
@@ -46,7 +46,7 @@ class Program
                         return;
                     }
 
-                    var service = new ChatBotGroupService(new ConfigurationBuilder()
+                    var service = new ChatbotGroupService(new ConfigurationBuilder()
                         .AddJsonFile("appsettings.json")
                         .Build());
 
@@ -68,7 +68,7 @@ class Program
                 else
                 {
                     string prompt = args[0];
-                    await ChatBothMessage.sentMessage(prompt);
+                    await ChatbotMessage.sentMessage(prompt);
                 }
             }
             else
@@ -81,7 +81,7 @@ class Program
                     if (prompt.Equals("exit", StringComparison.OrdinalIgnoreCase))
                         break;
 
-                    await ChatBothMessage.sentMessage(prompt);
+                    await ChatbotMessage.sentMessage(prompt);
                     Console.WriteLine();
                 }
             }
@@ -127,7 +127,7 @@ class Program
 
     //        //Console.WriteLine($"Received variable: {variable}");
     //        //Console.WriteLine($"Received string: {text}");
-    //        await ChatBothMessage.sentMessage(text);
+    //        await ChatbotMessage.sentMessage(text);
     //    }
     //    else
     //    {

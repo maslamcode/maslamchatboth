@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace GeminiChatBot.Models
 {
-    public class ChatBothsResponseModel
+    public class ChatbotResponseModel
     {
         public int id { get; set; }
         public int type { get; set; }

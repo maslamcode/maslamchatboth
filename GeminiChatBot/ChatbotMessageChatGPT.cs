@@ -14,7 +14,7 @@ using System.Text.RegularExpressions;
 
 namespace GeminiChatBot
 {
-    public class ChatBothMessageChatGPT
+    public class ChatbotMessageChatGPT
     {
         public static async Task sentMessage(string prompt)
         {
@@ -28,7 +28,7 @@ namespace GeminiChatBot
                 bool isGreeting = greetings.Any(greeting => prompt.Contains(greeting, StringComparison.OrdinalIgnoreCase));
                 if (isGreeting)
                 {
-                    var gretingRespone = await context.ChatBothResponses.Where(x => x.type == 1).Select(x => x.tag_message).ToListAsync();
+                    var gretingRespone = await context.ChatbotResponses.Where(x => x.type == 1).Select(x => x.tag_message).ToListAsync();
                     if (prompt.Contains("salam") || prompt.Contains("asslamualaikum"))
                         Console.WriteLine("wa'alaykumsalam wr wb");
                     foreach (var messge in gretingRespone)
@@ -40,7 +40,7 @@ namespace GeminiChatBot
                 }
                 if (prompt.Contains("siapa") && (prompt.Contains("anda") || prompt.Contains("kamu")))
                 {
-                    var sayHai = await context.ChatBothResponses.Where(x => x.type == 2).OrderBy(x => x.order).Select(x => x.tag_message).ToListAsync();
+                    var sayHai = await context.ChatbotResponses.Where(x => x.type == 2).OrderBy(x => x.order).Select(x => x.tag_message).ToListAsync();
 
                     foreach (var messge in sayHai)
                     {
@@ -52,7 +52,7 @@ namespace GeminiChatBot
                 if (!isGreeting)
                 {
 
-                    var listTag = string.Join(", ", await context.ChatBoths
+                    var listTag = string.Join(", ", await context.Chatbot
                         .Select(x => (x.tag_message ?? "").ToLower())
                         .ToListAsync());
 

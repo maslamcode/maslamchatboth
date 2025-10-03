@@ -9,12 +9,12 @@ using System.Threading.Tasks;
 
 namespace GeminiChatBot.Services
 {
-    public class ChatBotGroupService : IChatBotGroupService
+    public class ChatbotGroupService : IChatbotGroupService
     {
         private readonly string _connectionString;
         private readonly IConfiguration _config;
 
-        public ChatBotGroupService(IConfiguration config)
+        public ChatbotGroupService(IConfiguration config)
         {
             _config = config;
             _connectionString = _config.GetConnectionString("PostgreSqlConnection")
@@ -23,7 +23,7 @@ namespace GeminiChatBot.Services
 
         private NpgsqlConnection GetConnection() => new NpgsqlConnection(_connectionString);
 
-        public async Task<IEnumerable<ChatBotGroupModel>> GetAllGroupsAsync()
+        public async Task<IEnumerable<ChatbotGroupModel>> GetAllGroupsAsync()
         {
             using var conn = GetConnection();
             var sql = @"SELECT chatbot_group_id, 
@@ -37,10 +37,10 @@ namespace GeminiChatBot.Services
                         FROM public.chatbot_group
                         ORDER BY created_date DESC";
 
-            return await conn.QueryAsync<ChatBotGroupModel>(sql);
+            return await conn.QueryAsync<ChatbotGroupModel>(sql);
         }
 
-        public async Task<ChatBotGroupModel?> GetGroupByIdAsync(Guid chatbotGroupId)
+        public async Task<ChatbotGroupModel?> GetGroupByIdAsync(Guid chatbotGroupId)
         {
             using var conn = GetConnection();
             var sql = @"SELECT chatbot_group_id, 
@@ -54,10 +54,10 @@ namespace GeminiChatBot.Services
                         FROM public.chatbot_group
                         WHERE chatbot_group_id = @chatbotGroupId";
 
-            return await conn.QueryFirstOrDefaultAsync<ChatBotGroupModel>(sql, new { chatbotGroupId });
+            return await conn.QueryFirstOrDefaultAsync<ChatbotGroupModel>(sql, new { chatbotGroupId });
         }
 
-        public async Task<int> InsertGroupAsync(ChatBotGroupModel model)
+        public async Task<int> InsertGroupAsync(ChatbotGroupModel model)
         {
             using var conn = GetConnection();
 
@@ -82,7 +82,7 @@ namespace GeminiChatBot.Services
         }
 
 
-        public async Task<int> UpdateGroupAsync(ChatBotGroupModel model)
+        public async Task<int> UpdateGroupAsync(ChatbotGroupModel model)
         {
             using var conn = GetConnection();
             var sql = @"UPDATE public.chatbot_group

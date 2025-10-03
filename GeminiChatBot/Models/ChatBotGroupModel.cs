@@ -1,6 +1,6 @@
 ﻿namespace GeminiChatBot.Models
 {
-    public class ChatBotGroupModel
+    public class ChatbotGroupModel
     {
         public Guid chatbot_group_id { get; set; }
         public string group_name { get; set; }
