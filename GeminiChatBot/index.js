@@ -276,7 +276,7 @@ async function connectToWhatsApp() {
                 const metadata = await socket.groupMetadata(update.id);
                 for (let participant of update.participants) {
                     await socket.sendMessage(update.id, {
-                        text: `👋 Assalamualaikum @${participant.split("@")[0]}, selamat datang di *${metadata.subject}*!`,
+                        text: `👋 Assalamu'alaykum Bapak / Ibu @${participant.split("@")[0]}, selamat datang di WA Group *${metadata.subject}*, silahkan untuk memperkenalkan dirinya`,
                         mentions: [participant],
                     });
                 }
@@ -355,6 +355,14 @@ async function handleMessage(socket, phone, chatId, pesan, message) {
     }
 
     try {
+        //menambahkan mention user -----------------------
+        const sender = message.key.participant || message.key.remoteJid;
+        const mentionId = sender.endsWith("@s.whatsapp.net") ? sender : chatId;
+        const senderId = message.key.participant || message.key.remoteJid;
+        const senderName = message.pushName || senderId.split("@")[0]; 
+
+        pesan = 'Nama penanya : ' + senderName + '  Pertanyaan : ' + pesan; 
+
         console.log(now + " 📤 Mengirim pesan ke C#...");
         let response = await sentToCSharp(pesan);
 
@@ -364,17 +372,12 @@ async function handleMessage(socket, phone, chatId, pesan, message) {
 
         console.log(now + " 📤 Target:", phone, "→", chatId);
 
-        //menambahkan mention user -----------------------
-        const sender = message.key.participant || message.key.remoteJid;
-        const mentionId = sender.endsWith("@s.whatsapp.net") ? sender : chatId;
-        const senderId = message.key.participant || message.key.remoteJid;
-        const senderName = message.pushName || senderId.split("@")[0]; 
-
+        
         const sendResult = await safeSend(
             socket, 
             phone, 
             {
-                text: `Terima kasih sudah menghubungi, Bapak/Ibu ${senderName}.\n\n ${response}`,
+                text: response,
                 mentions: [mentionId]
             }, 
             { quoted: message } 
