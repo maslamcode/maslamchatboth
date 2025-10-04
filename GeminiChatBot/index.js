@@ -276,7 +276,7 @@ async function connectToWhatsApp() {
                 const metadata = await socket.groupMetadata(update.id);
                 for (let participant of update.participants) {
                     await socket.sendMessage(update.id, {
-                        text: `👋 Assalamu'alaykum Bapak / Ibu @${participant.split("@")[0]}, selamat datang di WA Group *${metadata.subject}*, silahkan untuk memperkenalkan dirinya`,
+                        text: `👋 Assalamu'alaykum Bapak/Ibu @${participant.split("@")[0]}, selamat datang di WA Group *${metadata.subject}*, silahkan untuk memperkenalkan dirinya`,
                         mentions: [participant],
                     });
                 }
