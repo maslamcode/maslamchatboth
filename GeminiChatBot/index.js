@@ -30,7 +30,7 @@ function checkApiKey(req, res, next) {
 }
 
 const app = express();
-const port = 3000;
+const port = 5555;
 
 const uploadFolder = path.join(__dirname, "DataFiles");
 if (!fs.existsSync(uploadFolder)) {
@@ -78,6 +78,30 @@ app.post("/broadcast", checkApiKey, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+app.post("/broadcast-bulk", checkApiKey, async (req, res) => {
+    const { message, groupIds } = req.body;
+    const now = new Date().toISOString();
+
+    console.log(`\n🕐 [${now}] Incoming /broadcast-bulk request`);
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+
+    if (!message || !Array.isArray(groupIds) || groupIds.length === 0) {
+        console.warn("⚠️ Invalid request: message or groupIds missing");
+        return res.status(400).json({ error: "Message and groupIds required" });
+    }
+
+    try {
+        console.log(`📢 Starting broadcast to ${groupIds.length} groups...`);
+        await broadcastToGroups(waSocket, message, groupIds);
+        console.log(`✅ Broadcast completed to ${groupIds.length} groups at ${now}`);
+        res.json({ message: `======= Broadcast sent to ${groupIds.length} groups` });
+    } catch (err) {
+        console.error("❌ Broadcast error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 
 app.listen(port, () => {
@@ -482,6 +506,28 @@ async function broadcastToAllGroups(socket, messageText) {
         try {
             await safeSend(socket, groupId, { text: messageText });
             console.log("====== Sent to:", groups[groupId].name, `(${groupId})`);
+            await delay(1500);
+        } catch (err) {
+            console.error("xxxxxx Failed to send to", groupId, ":", err.message);
+        }
+    }
+}
+
+async function broadcastToGroups(socket, messageText, groupIds) {
+    if (!socket) {
+        console.error("xxxxxx Socket is not connected!");
+        return;
+    }
+
+    const groups = loadGroupsFromFile();
+
+    console.log(" ====== Broadcasting to", groupIds.length, "groups...");
+
+    for (const groupId of groupIds) {
+        try {
+            await safeSend(socket, groupId, { text: messageText });
+            const name = groups[groupId]?.name ?? "Unknown";
+            console.log("====== Sent to:", name, `(${groupId})`);
             await delay(1500);
         } catch (err) {
             console.error("xxxxxx Failed to send to", groupId, ":", err.message);
