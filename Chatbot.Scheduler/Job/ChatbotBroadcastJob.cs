@@ -12,7 +12,7 @@ namespace Chatbot.Scheduler.Job
         private readonly IConfiguration _config;
 
         public string Name => "Chatbot Broadcast";
-        public TimeSpan Interval => TimeSpan.FromMinutes(1);
+        public TimeSpan Interval => TimeSpan.FromMinutes(5);
 
         public ChatbotBroadcastJob(
             IChatbotGroupService chatbotGroupService,
