@@ -14,7 +14,7 @@ namespace GeminiChatBot.Helper
         private static readonly ConcurrentDictionary<string, (string Content, DateTime Expiry)> _cache
             = new ConcurrentDictionary<string, (string, DateTime)>();
 
-        public static async Task<string> GetGoogleDocContentAsync(string googleLink, string kotaName = null)
+        public static async Task<string> GetGoogleDocContentAsync(string googleLink, string kotaName = "")
         {
             if (_cache.TryGetValue(googleLink, out var cacheEntry))
             {
@@ -23,7 +23,7 @@ namespace GeminiChatBot.Helper
             }
 
             string url = googleLink;
-            string content = null;
+            string content = string.Empty;
 
             if (url.Contains("docs.google.com/document"))
             {

@@ -5,7 +5,7 @@ namespace Chatbot.Service.Model.Chatbot
     {
         public int id { get; set; }
         public int type { get; set; }
-        public string tag_message { get; set; }
+        public string? tag_message { get; set; }
         public int order { get; set; }
     }
 }

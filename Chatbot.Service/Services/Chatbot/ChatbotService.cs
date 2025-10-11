@@ -58,7 +58,7 @@ namespace Chatbot.Service.Services.Chatbot
                 return "Pertanyaan terlalu singkat, silakan ajukan pertanyaan yang lebih jelas.";
             }
 
-            return null;
+            return string.Empty;
         }
 
         public async Task<IEnumerable<string>> GetMatchedDataLinksAsync(string prompt)

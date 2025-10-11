@@ -15,7 +15,7 @@ namespace GeminiChatBot
 {
     public class ChatbotMessage
     {
-        private static string _cachedEncodedPdf = null;
+        private static string _cachedEncodedPdf = string.Empty;
         private static DateTime _lastCacheTime;
         private static readonly TimeSpan _cacheDuration = TimeSpan.FromMinutes(30);
 
@@ -75,10 +75,10 @@ namespace GeminiChatBot
                 var listTag = string.Empty;
                 var promptData = string.Empty;
 
-                string geminiVersion = _configuration["Config:geminVersi"];
-                string googleApiKey = _configuration["Config:googleApiKey"];
+                string geminiVersion = _configuration["Config:geminVersi"] ?? string.Empty;
+                string googleApiKey = _configuration["Config:googleApiKey"] ?? string.Empty;
 
-                string[] provisionsArray = _configuration.GetSection("Config:provision").Get<string[]>();
+                string[] provisionsArray = _configuration.GetSection("Config:provision").Get<string[]>() ?? Array.Empty<string>();
 
                 string provision = string.Join(Environment.NewLine, provisionsArray);
 
@@ -164,7 +164,7 @@ namespace GeminiChatBot
                         }
 
                         var contentFiles = string.Empty;
-                        foreach (var item in matchedDataLinks)
+                        foreach (var item in matchedDataLinks ?? Enumerable.Empty<string>())
                         {
                             SourceResponse += $"\n_Source File: {await GetGoogleDocTitleAsync(item)}_";
 
@@ -225,7 +225,7 @@ namespace GeminiChatBot
 
                     if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                     {
-                        string retryAfterHeader = response.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
+                        string? retryAfterHeader = response.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
 
                         string pesanUntukPengguna;
 
@@ -303,7 +303,7 @@ namespace GeminiChatBot
                                     {
                                         if (part.TryGetProperty("text", out JsonElement textElement))
                                         {
-                                            string potentialResponse = textElement.GetString();
+                                            string? potentialResponse = textElement.GetString();
                                             if (!string.IsNullOrWhiteSpace(potentialResponse))
                                             {
                                                 respone = potentialResponse;

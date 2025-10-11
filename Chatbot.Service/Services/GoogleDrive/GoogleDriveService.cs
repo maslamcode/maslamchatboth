@@ -56,7 +56,7 @@ namespace Chatbot.Service.Services.GoogleDrive
                     Id = file.Id,
                     Name = file.Name,
                     MimeType = file.MimeType,
-                    ModifiedTime = file.ModifiedTime,
+                    ModifiedTime = file.ModifiedTimeDateTimeOffset?.UtcDateTime,
                     Size = file.Size
                 };
 

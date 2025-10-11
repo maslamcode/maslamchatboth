@@ -28,9 +28,9 @@ namespace Chatbot.Service.Model.Sholat
 
         public string nama { get; set; } = string.Empty;
 
-        public string latitude { get; set; }
+        public string? latitude { get; set; }
 
-        public string longitude { get; set; }
+        public string? longitude { get; set; }
 
         public bool is_aktif { get; set; }
 

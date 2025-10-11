@@ -10,8 +10,8 @@ namespace Chatbot.Service.Model.Sholat
 {
     public class JadwalSholatModel
     {
-        public string propinsi { get; set; }
-        public string kota { get; set; }
+        public string? propinsi { get; set; }
+        public string? kota { get; set; }
         public int tanggal { get; set; }
         public int bulan { get; set; }
         public TimeSpan imsak { get; set; }

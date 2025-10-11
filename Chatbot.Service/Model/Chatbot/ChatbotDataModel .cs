@@ -9,8 +9,8 @@ namespace Chatbot.Service.Model.Chatbot
         public Guid updated_by { get; set; }
         public DateTime last_updated { get; set; }
         public DateTime rowversion { get; set; }
-        public string prompt_words { get; set; }
-        public string data_link_online { get; set; }
+        public string? prompt_words { get; set; }
+        public string? data_link_online { get; set; }
     }
 
     public class ChatbotFileModel
@@ -21,7 +21,7 @@ namespace Chatbot.Service.Model.Chatbot
         public Guid updated_by { get; set; }
         public DateTime last_updated { get; set; }
         public DateTime rowversion { get; set; }
-        public string prompt_words { get; set; }
-        public string file_name { get; set; }
+        public string? prompt_words { get; set; }
+        public string? file_name { get; set; }
     }
 }
