@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.10.35004.147
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GeminiWebHook", "GeminiWebHook\GeminiWebHook.csproj", "{102FBACF-556A-4F1D-B4E8-C06C6A809894}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GeminiChatBot", "GeminiChatBot\GeminiChatBot.csproj", "{56390AE4-B3C9-4D40-90F5-A0BF55E41FE3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chatbot.Scheduler", "Chatbot.Scheduler\Chatbot.Scheduler.csproj", "{7E1A268D-EEEB-4971-8728-2EC581C7BAD7}"
@@ -17,10 +15,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{102FBACF-556A-4F1D-B4E8-C06C6A809894}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{102FBACF-556A-4F1D-B4E8-C06C6A809894}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{102FBACF-556A-4F1D-B4E8-C06C6A809894}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{102FBACF-556A-4F1D-B4E8-C06C6A809894}.Release|Any CPU.Build.0 = Release|Any CPU
 		{56390AE4-B3C9-4D40-90F5-A0BF55E41FE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{56390AE4-B3C9-4D40-90F5-A0BF55E41FE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{56390AE4-B3C9-4D40-90F5-A0BF55E41FE3}.Release|Any CPU.ActiveCfg = Release|Any CPU

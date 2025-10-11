@@ -1,13 +1,8 @@
 ﻿using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
-using Google.Apis.Download;
 using Google.Apis.Services;
-using Google.Apis.Util.Store;
-using System.Text;
-using OpenQA.Selenium;
-using Microsoft.Extensions.Configuration;
 
-namespace GeminiChatBot.Services
+namespace Chatbot.Service.Services.GoogleDrive
 {
     public class GoogleDriveService: IGoogleDriveService
     {

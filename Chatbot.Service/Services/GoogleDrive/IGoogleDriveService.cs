@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GeminiChatBot.Services
+namespace Chatbot.Service.Services.GoogleDrive
 {
     public interface IGoogleDriveService
     {

@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace GeminiChatBot.Models
+namespace Chatbot.Service.Model.Sholat
 {
     public class KotaModel
     {

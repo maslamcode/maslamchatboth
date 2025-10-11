@@ -1,11 +1,7 @@
-﻿using GeminiChatBot.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿
+using Chatbot.Service.Model.Sholat;
 
-namespace GeminiChatBot.Services
+namespace Chatbot.Service.Services.Sholat
 {
     public interface ISholatService
     {

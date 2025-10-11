@@ -1,13 +1,7 @@
-﻿using GeminiChatBot;
-using GeminiChatBot.Models;
-using GeminiChatBot.Services;
+﻿using Chatbot.Service.Model.ChatbotGroup;
+using Chatbot.Service.Services.ChatbotGroup;
+using GeminiChatBot;
 using Microsoft.Extensions.Configuration;
-using PdfSharp.Pdf;
-using PdfSharp.Pdf.IO;
-using System;
-using System.IO;
-using System.Net.Http;
-using System.Text;
 using System.Text.Json;
 
 class Program

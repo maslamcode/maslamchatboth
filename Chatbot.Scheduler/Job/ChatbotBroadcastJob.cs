@@ -40,6 +40,15 @@ namespace Chatbot.Scheduler.Job
             var groups = await _chatbotGroupService.GetAllGroupsAsync();
             var activeGroups = groups.Where(x => x.is_receive_broadcast).ToList();
 
+            //Broacast Schdeule WHERE DateTime Now >= Record Data di Schedule
+            //If(valid) executed data tersebut
+            //{
+            //  //var scheduleTime = groups.Where(x => x.schedule_time <= DateTime.Now.TimeOfDay).ToList();
+            // Get groups target & scheduler message
+            // // Todo Implement chatbot broadcast topic ke LLM  -> response
+            // Push to API Broadcast Bulk
+            //}
+
             if (!activeGroups.Any())
             {
                 _logger.LogInformation("No groups marked for broadcast.");

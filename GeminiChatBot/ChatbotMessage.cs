@@ -2,14 +2,14 @@
 using PdfSharp.Pdf;
 using System.Text;
 using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using GeminiChatBot.Services;
 using GeminiChatBot.Helper;
 using UglyToad.PdfPig.Content;
 using System.Text.RegularExpressions;
-using System.Net.NetworkInformation;
 using System.Globalization;
+using Chatbot.Service.Services.Chatbot;
+using Chatbot.Service.Services.Sholat;
+using Chatbot.Service.Services.GoogleDrive;
 
 namespace GeminiChatBot
 {
@@ -39,25 +39,7 @@ namespace GeminiChatBot
 
         public static async Task sentMessage(string prompt)
         {
-            //await _googleDriveService.InitializeAsync();
-
-            //string folderId = "1Rv9gKEqSblYb9YevE00YYdHVBHlt2IuC";
-            //string downloadFolder = Path.Combine(Directory.GetCurrentDirectory(), "GoogleDrive");
-            //Directory.CreateDirectory(downloadFolder);
-
-            //var files = await _googleDriveService.ReadAllFilesAsync(folderId, downloadFolder);
-
-            //foreach (var file in files)
-            //{
-            //    Console.WriteLine($"Name: {file.Name}, Size: {file.Size}, Type: {file.MimeType}");
-            //    if (!string.IsNullOrEmpty(file.Content))
-            //    {
-            //        Console.WriteLine($"--- Content Preview ---\n{file.Content[..Math.Min(200, file.Content.Length)]}\n");
-            //    }
-            //}
-
-            //return;
-
+            
             SourceResponse = string.Empty;
             var startTime = DateTime.Now;
             try

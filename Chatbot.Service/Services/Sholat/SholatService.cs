@@ -1,16 +1,12 @@
-﻿using Dapper;
-using GeminiChatBot.Models;
+﻿using Chatbot.Service.Model.Sholat;
+using Dapper;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace GeminiChatBot.Services
+namespace Chatbot.Service.Services.Sholat
 {
-    public class SholatService: ISholatService
+    public class SholatService : ISholatService
     {
         private readonly string _connectionString;
         private readonly IConfiguration _config;

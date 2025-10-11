@@ -1,16 +1,10 @@
-﻿using Dapper;
-using GeminiChatBot.Models;
+﻿using Chatbot.Service.Model.Chatbot;
+using Dapper;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using UglyToad.PdfPig.Content;
 
-namespace GeminiChatBot.Services
+namespace Chatbot.Service.Services.Chatbot
 {
     public class ChatbotService: IChatbotService
     {
