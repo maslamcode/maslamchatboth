@@ -21,7 +21,7 @@ namespace GeminiChatBot
 
         private static IChatbotService _chatBotService;
         private static ISholatService _sholatService;
-        private static IGoogleDriveService _googleDriveService;
+        //private static IGoogleDriveService _googleDriveService;
         private static IConfiguration _configuration;
 
         private static string SourceResponse = string.Empty;
@@ -39,7 +39,35 @@ namespace GeminiChatBot
 
         public static async Task sentMessage(string prompt)
         {
-            
+
+            //DONT REMOVE THIS - FUTURE USE
+            //try
+            //{
+            //    await _googleDriveService.InitializeAsync();
+
+            //    string folderId = "1Rv9gKEqSblYb9YevE00YYdHVBHlt2IuC";
+            //    string downloadFolder = Path.Combine(Directory.GetCurrentDirectory(), "GoogleDrive");
+            //    Directory.CreateDirectory(downloadFolder);
+
+            //    var files = await _googleDriveService.ReadAllFilesAsync(folderId, downloadFolder);
+
+            //    foreach (var file in files)
+            //    {
+            //        Console.WriteLine($"Name: {file.Name}, Size: {file.Size}, Type: {file.MimeType}");
+            //        if (!string.IsNullOrEmpty(file.Content))
+            //        {
+            //            Console.WriteLine($"--- Content Preview ---\n{file.Content[..Math.Min(200, file.Content.Length)]}\n");
+            //        }
+            //    }
+
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine("Error Gdrive: " + ex.Message);
+            //}
+            //return;
+
+
             SourceResponse = string.Empty;
             var startTime = DateTime.Now;
             try

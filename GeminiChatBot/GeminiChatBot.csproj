@@ -47,6 +47,9 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="credentials.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\Manual Guide - Financial - AR - AR Invoice.pdf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
