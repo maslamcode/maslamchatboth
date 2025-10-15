@@ -10,6 +10,7 @@ namespace Chatbot.Service.Services.ChatbotGroup
         Task<int> InsertGroupAsync(ChatbotGroupModel model);
         Task<int> UpdateGroupAsync(ChatbotGroupModel model);
         Task<int> DeleteGroupAsync(Guid chatbotGroupId);
+        Task<IEnumerable<ChatbotGroupModel>> GetAllGroupsByIdsAsync(List<Guid> ids);
 
     }
 }

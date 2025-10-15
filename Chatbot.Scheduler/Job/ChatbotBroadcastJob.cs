@@ -14,6 +14,7 @@ namespace Chatbot.Scheduler.Job
         private readonly IBroadcastMessageService _broadcastMessageService;
         private readonly IBroadcastTargetService _broadcastTargetService;
         private readonly IMessageListService _messageListService;
+        private readonly IChatbotGroupService _chatbotGroupService;
         private readonly ILogger<ChatbotBroadcastJob> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _config;
@@ -26,6 +27,7 @@ namespace Chatbot.Scheduler.Job
             IBroadcastMessageService broadcastMessageService,
             IBroadcastTargetService broadcastTargetService,
             IMessageListService messageListService,
+            IChatbotGroupService chatbotGroupService,
             ILogger<ChatbotBroadcastJob> logger,
             IHttpClientFactory httpClientFactory,
             IConfiguration config)
@@ -34,6 +36,7 @@ namespace Chatbot.Scheduler.Job
             _broadcastMessageService = broadcastMessageService;
             _broadcastTargetService = broadcastTargetService;
             _messageListService = messageListService;
+            _chatbotGroupService = chatbotGroupService;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _config = config;
@@ -83,7 +86,14 @@ namespace Chatbot.Scheduler.Job
                         continue;
                     }
 
-                    var groupIds = targets.Where(x=>x.TargetType == 'G').Select(x=>x.ChatbotGroupId).ToList();
+                    var groupIds = targets.Where(x=>x.TargetType == 'G' && x.ChatbotGroupId.HasValue).Select(x=>x.ChatbotGroupId.Value).ToList();
+
+                    var groups = await _chatbotGroupService.GetAllGroupsByIdsAsync(groupIds);
+                    if (!groups.Any())
+                    {
+                        _logger.LogInformation("No chatbot groups found for target groups.");
+                        continue;
+                    }
 
                     //  Step 4: Prepare message content 
                     string messageText;
@@ -100,7 +110,7 @@ namespace Chatbot.Scheduler.Job
                             var random = new Random();
                             var picked = validMessages[random.Next(validMessages.Count)];
 
-                            // Send title as topic to LLM
+                            // Send title as topic to LLM - UPDATE SOON
                             try
                             {
                             
@@ -132,8 +142,7 @@ namespace Chatbot.Scheduler.Job
                     var payload = new
                     {
                         message = messageText,
-                        targetIds = targets.Select(t => t.ChatbotGroupId).ToList(),
-                        sentAt = now
+                        groupIds = groups.Select(t => t.group_id).ToList()
                     };
 
                     var httpClient = _httpClientFactory.CreateClient();
