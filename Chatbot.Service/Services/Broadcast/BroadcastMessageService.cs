@@ -40,5 +40,28 @@ namespace Chatbot.Service.Services.Broadcast
 
             return await conn.QueryAsync<BroadcastMessageModel>(sql);
         }
+
+        public async Task<BroadcastMessageModel?> GetByIdAsync(Guid broadcastMessageId)
+        {
+            using var conn = GetConnection();
+
+            const string sql = @"
+                SELECT 
+                    broadcast_message_id AS BroadcastMessageId,
+                    created_by AS CreatedBy,
+                    created_date AS CreatedDate,
+                    updated_by AS UpdatedBy,
+                    last_updated AS LastUpdated,
+                    rowversion AS RowVersion,
+                    is_random AS IsRandom,
+                    title AS Title,
+                    message_content AS MessageContent,
+                    is_active AS IsActive
+                FROM chatbot.broadcast_message
+                WHERE broadcast_message_id = @BroadcastMessageId;";
+
+            return await conn.QuerySingleOrDefaultAsync<BroadcastMessageModel>(sql, new { BroadcastMessageId = broadcastMessageId });
+        }
+
     }
 }

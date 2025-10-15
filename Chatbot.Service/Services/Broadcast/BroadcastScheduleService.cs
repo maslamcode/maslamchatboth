@@ -1,5 +1,6 @@
 ﻿using Chatbot.Service.Model.Chatbot;
 using Dapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 
@@ -42,5 +43,18 @@ namespace Chatbot.Service.Services.Broadcast
 
             return await conn.QueryAsync<BroadcastScheduleModel>(sql);
         }
+
+        public async Task<IEnumerable<BroadcastScheduleModel>> GetDueSchedulesAsync(DateTime now)
+        {
+            var objs = await GetAllAsync();
+
+
+            return objs.Where(x => x.IsActive.HasValue && x.IsActive.Value &&
+                            (
+                                (x.ScheduleType == 'O' && x.ScheduleDateTime <= now) ||
+                                (x.ScheduleType == 'W' && x.DayOfWeek == (int)now.DayOfWeek && x.ScheduleTime <= now.TimeOfDay)
+                            )).ToList();
+        }
+
     }
 }

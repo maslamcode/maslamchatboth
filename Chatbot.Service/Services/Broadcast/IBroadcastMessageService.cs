@@ -5,5 +5,7 @@ namespace Chatbot.Service.Services.Broadcast
     public interface IBroadcastMessageService
     {
         Task<IEnumerable<BroadcastMessageModel>> GetAllAsync();
+
+        Task<BroadcastMessageModel?> GetByIdAsync(Guid broadcastMessageId);
     }
 }
