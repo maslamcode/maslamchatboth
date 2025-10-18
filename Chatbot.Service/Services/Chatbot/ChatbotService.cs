@@ -2,19 +2,33 @@
 using Dapper;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
+using System.Globalization;
+using System.Net.Http;
+using System.Text.Json;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Chatbot.Service.Services.Chatbot
 {
-    public class ChatbotService: IChatbotService
+    public class ChatbotService : IChatbotService
     {
         private readonly string _connectionString;
+        private readonly string _googleApiKey;
+        private readonly string _geminiVersion;
         private readonly IConfiguration _config;
+        private readonly HttpClient _httpClient;
 
         public ChatbotService(IConfiguration config)
         {
             _config = config;
+            _googleApiKey = _config["Google:GeminiApiKey"];
+            _geminiVersion = _config["Google:GeminiVersi"];
             _connectionString = _config.GetConnectionString("PostgreSqlConnection") ?? throw new ArgumentNullException("Connection string 'PostgreSqlConnection' not found.");
+
+            _httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(5)
+            };
         }
 
         private NpgsqlConnection GetConnection() => new NpgsqlConnection(_connectionString);
@@ -140,7 +154,7 @@ namespace Chatbot.Service.Services.Chatbot
                                    .Where(w => !string.IsNullOrWhiteSpace(w))
                                    .Select(w => w.ToLowerInvariant())
                                    .ToHashSet();
-            
+
 
             foreach (var selection in allData)
             {
@@ -187,6 +201,104 @@ namespace Chatbot.Service.Services.Chatbot
             return matchedFileNames;
         }
 
+        public async Task<string> GetResponseFromGeminiAsync(object payload)
+        {
+            string jsonPayload = JsonSerializer.Serialize(payload);
+            var requestUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{_geminiVersion}:generateContent?key={_googleApiKey}";
+
+            var request = new HttpRequestMessage(HttpMethod.Post, requestUrl)
+            {
+                Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
+            };
+
+            var response = await _httpClient.SendAsync(request);
+            string responseBody = await response.Content.ReadAsStringAsync();
+
+            if (string.IsNullOrWhiteSpace(responseBody))
+            {
+                Console.WriteLine(requestUrl);
+                Console.WriteLine(response.StatusCode);
+                Console.WriteLine("Empty response from Gemini API.");
+                return "Maaf, saya tidak menerima jawaban dari server. Silakan coba lagi.";
+            }
+
+            // Handle 429 (Too Many Requests)
+            if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                string retryAfterHeader = response.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
+
+                double? waitSeconds = null;
+                if (int.TryParse(retryAfterHeader, out int retryAfterSeconds))
+                {
+                    waitSeconds = retryAfterSeconds;
+                }
+                else
+                {
+                    using var doc = JsonDocument.Parse(responseBody);
+                    if (doc.RootElement.TryGetProperty("error", out var errorEl) &&
+                        errorEl.TryGetProperty("details", out var detailsEl))
+                    {
+                        foreach (var detail in detailsEl.EnumerateArray())
+                        {
+                            if (detail.TryGetProperty("@type", out var typeEl) && typeEl.GetString() == "type.googleapis.com/google.rpc.RetryInfo" && detail.TryGetProperty("retryDelay", out var retryDelayEl))
+                            {
+                                var retryDelayStr = retryDelayEl.GetString();
+                                if (!string.IsNullOrEmpty(retryDelayStr) && retryDelayStr.EndsWith("s") &&
+                                    double.TryParse(retryDelayStr.TrimEnd('s'), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds))
+                                {
+                                    waitSeconds = seconds;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                string waitMsg = waitSeconds.HasValue
+                    ? $"Mohon maaf, permintaan anda melebihi batas. Coba lagi dalam {FormatWaktu(waitSeconds.Value)}."
+                    : "Mohon maaf, permintaan anda melebihi batas. Silakan coba lagi nanti.";
+                return waitMsg;
+            }
+
+            // Parse successful response
+            using (JsonDocument jsonDoc = JsonDocument.Parse(responseBody))
+            {
+                if (jsonDoc.RootElement.TryGetProperty("candidates", out JsonElement candidates))
+                {
+                    foreach (JsonElement candidate in candidates.EnumerateArray())
+                    {
+                        if (candidate.TryGetProperty("content", out JsonElement content) &&
+                            content.TryGetProperty("parts", out JsonElement parts))
+                        {
+                            foreach (JsonElement part in parts.EnumerateArray())
+                            {
+                                if (part.TryGetProperty("text", out JsonElement textEl))
+                                {
+                                    string result = textEl.GetString();
+                                    if (!string.IsNullOrWhiteSpace(result))
+                                        return result;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string FormatWaktu(double totalSeconds)
+        {
+            int totalDetik = (int)Math.Ceiling(totalSeconds);
+            int jam = totalDetik / 3600;
+            int menit = (totalDetik % 3600) / 60;
+            int detik = totalDetik % 60;
+
+            if (jam > 0)
+                return $"{jam} jam {menit} menit {detik} detik";
+            if (menit > 0)
+                return $"{menit} menit {detik} detik";
+            return $"{detik} detik";
+        }
 
     }
 }

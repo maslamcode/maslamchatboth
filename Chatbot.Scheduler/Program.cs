@@ -10,7 +10,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddChatbotServices();
 
 builder.Services.AddSingleton<IScheduledJob, ChatbotBroadcastJob>();
-builder.Services.AddSingleton<IScheduledJob, FileCleanupJob>();
+//builder.Services.AddSingleton<IScheduledJob, FileCleanupJob>();
 
 builder.Services.AddHostedService<Worker>();
 

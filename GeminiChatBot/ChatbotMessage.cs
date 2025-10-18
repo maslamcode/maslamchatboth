@@ -83,7 +83,7 @@ namespace GeminiChatBot
                 string provision = string.Join(Environment.NewLine, provisionsArray);
 
                 var partsData = Array.Empty<object>();
-                var respone = string.Empty;
+                var response = string.Empty;
 
                 //Console.WriteLine($"Waktu setelah greetings: {(DateTime.Now - startTime).TotalSeconds} detik");
                 string encodedStringData = string.Empty;
@@ -132,9 +132,6 @@ namespace GeminiChatBot
                 }
                 else
                 {
-
-
-
                     var matchedDataLinks = (await _chatBotService.GetMatchedDataLinksAsync(prompt)).ToList();
                     var matchedDataFiles = (await _chatBotService.GetMatchedDataFilesAsync(prompt)).ToList();
 
@@ -202,133 +199,19 @@ namespace GeminiChatBot
                         }
                 };
 
-                // Send the POST request
-
-                //Console.WriteLine($"Waktu sebelum process gemini: {(DateTime.Now - startTime).TotalSeconds} detik");
-
-                string jsonPayload = JsonSerializer.Serialize(payload);
-                //Console.WriteLine(jsonPayload);
-
-                using (HttpClient httpClient = new HttpClient())
-                {
-                    httpClient.Timeout = TimeSpan.FromMinutes(5); // Increase to 5 minutes
-                    var request = new HttpRequestMessage(HttpMethod.Post, $"https://generativelanguage.googleapis.com/v1beta/models/{geminiVersion}:generateContent?key={googleApiKey}")
-                    {
-                        Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json")
-                    };
-
-                    HttpResponseMessage response = await httpClient.SendAsync(request);
-
-                    //Console.WriteLine($"HTTP Status: {(int)response.StatusCode} {response.ReasonPhrase}");
-
-                    string responseBody = await response.Content.ReadAsStringAsync();
-
-                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                    {
-                        string? retryAfterHeader = response.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
-
-                        string pesanUntukPengguna;
-
-                        string FormatWaktu(double totalSeconds)
-                        {
-                            int totalDetik = (int)Math.Ceiling(totalSeconds);
-                            int jam = totalDetik / 3600;
-                            int menit = (totalDetik % 3600) / 60;
-                            int detik = totalDetik % 60;
-
-                            if (jam > 0)
-                            {
-                                return $"{jam} jam {menit} menit {detik} detik";
-                            }
-                            else if (menit > 0)
-                            {
-                                return $"{menit} menit {detik} detik";
-                            }
-                            else
-                            {
-                                return $"{detik} detik";
-                            }
-                        }
-
-                        double? waitSeconds = null;
-
-                        if (int.TryParse(retryAfterHeader, out int retryAfterSeconds))
-                        {
-                            waitSeconds = retryAfterSeconds;
-                        }
-                        else
-                        {
-                            using var doc = JsonDocument.Parse(responseBody);
-                            foreach (var detail in doc.RootElement.GetProperty("error").GetProperty("details").EnumerateArray())
-                            {
-                                if (detail.TryGetProperty("@type", out var typeEl) &&
-                                    typeEl.GetString() == "type.googleapis.com/google.rpc.RetryInfo" &&
-                                    detail.TryGetProperty("retryDelay", out var retryDelayEl))
-                                {
-                                    var retryDelayStr = retryDelayEl.GetString();
-                                    if (!string.IsNullOrEmpty(retryDelayStr) && retryDelayStr.EndsWith("s") &&
-                                        double.TryParse(retryDelayStr.TrimEnd('s'), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds))
-                                    {
-                                        waitSeconds = seconds;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (waitSeconds.HasValue)
-                        {
-                            pesanUntukPengguna = $"Mohon maaf, permintaan anda saat ini melebihi batas. Silakan coba lagi dalam {FormatWaktu(waitSeconds.Value)}.";
-                        }
-                        else
-                        {
-                            pesanUntukPengguna = "Mohon maaf, permintaan anda saat ini melebihi batas. Silakan coba lagi beberapa saat lagi.";
-                        }
-
-                        Console.WriteLine(pesanUntukPengguna);
-                        return;
-                    }
-
-                    //Console.WriteLine("responseBody:", responseBody);
-                    // Optionally parse and extract specific parts of the response
-                    using (JsonDocument jsonDoc = JsonDocument.Parse(responseBody))
-                    {
-                        if (jsonDoc.RootElement.TryGetProperty("candidates", out JsonElement candidates))
-                        {
-                            foreach (JsonElement candidate in candidates.EnumerateArray())
-                            {
-                                if (candidate.TryGetProperty("content", out JsonElement content) &&
-                                    content.TryGetProperty("parts", out JsonElement contentParts))
-                                {
-                                    foreach (JsonElement part in contentParts.EnumerateArray())
-                                    {
-                                        if (part.TryGetProperty("text", out JsonElement textElement))
-                                        {
-                                            string? potentialResponse = textElement.GetString();
-                                            if (!string.IsNullOrWhiteSpace(potentialResponse))
-                                            {
-                                                respone = potentialResponse;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                    }
-                }
+                response = await _chatBotService.GetResponseFromGeminiAsync(payload);
 
                 //respone += responseBody;
-                if (string.IsNullOrEmpty(respone))
+                if (string.IsNullOrEmpty(response))
                 {
-                    respone = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
-                    Console.WriteLine(respone);
+                    response = "Maaf, saya belum menemukan jawabannya. Silakan ajukan pertanyaan seputar aplikasi atau layanan Maslam.";
+                    Console.WriteLine(response);
                     return;
                 }
 
-                var responseArray = respone.Split("$$^^&&");
+                var responseArray = response.Split("$$^^&&");
 
-                Console.WriteLine(respone); //Response
+                Console.WriteLine(response); //Response
                 if (!string.IsNullOrEmpty(SourceResponse))
                 {
                     Console.WriteLine(SourceResponse); //Response
@@ -341,6 +224,7 @@ namespace GeminiChatBot
             }
             catch (Exception ex)
             {
+                Console.WriteLine(ex.Message, ex.StackTrace);
                 //Console.WriteLine("err : " + ex.Message + ", Sorry please ask again.");
                 Console.WriteLine("Maaf, terjadi kesalahan dalam memproses permintaan Anda. Silakan coba lagi. err : " + ex.Message);
                 //Console.WriteLine("Mohon sistem tidak ");

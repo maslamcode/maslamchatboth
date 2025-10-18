@@ -48,13 +48,25 @@ namespace Chatbot.Service.Services.Broadcast
         {
             var objs = await GetAllAsync();
 
+            return objs
+                .Where(x => x.IsActive.HasValue && x.IsActive.Value &&
+                    (
+                        // One-time
+                        (x.ScheduleType == 'O' && x.ScheduleDateTime <= now) ||
 
-            return objs.Where(x => x.IsActive.HasValue && x.IsActive.Value &&
-                            (
-                                (x.ScheduleType == 'O' && x.ScheduleDateTime <= now) ||
-                                (x.ScheduleType == 'W' && x.DayOfWeek == (int)now.DayOfWeek && x.ScheduleTime <= now.TimeOfDay)
-                            )).ToList();
+                        // Weekly
+                        (x.ScheduleType == 'W' &&
+                         x.DayOfWeek == (int)now.DayOfWeek &&
+                         x.ScheduleTime <= now.TimeOfDay) ||
+
+                        // Monthly
+                        (x.ScheduleType == 'M' &&
+                         x.DayOfWeek == (int)now.DayOfWeek &&
+                         x.ScheduleTime <= now.TimeOfDay)
+                    ))
+                .ToList();
         }
+
 
     }
 }

@@ -6,5 +6,7 @@
         Task<IEnumerable<string>> GetMatchedDataLinksAsync(string prompt);
         Task<IEnumerable<string>> GetMatchedDataFilesAsync(string prompt);
 
+        Task<string> GetResponseFromGeminiAsync(object payload);
+
     }
 }

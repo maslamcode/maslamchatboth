@@ -1,10 +1,8 @@
 ﻿using Chatbot.Service.Services.ChatbotGroup;
 using Chatbot.Service.Services.MessageList;
 using Chatbot.Service.Services.Broadcast;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
+using Chatbot.Service.Services.Chatbot;
 using System.Net.Http.Json;
-using System.Runtime.CompilerServices;
 
 namespace Chatbot.Scheduler.Job
 {
@@ -15,12 +13,13 @@ namespace Chatbot.Scheduler.Job
         private readonly IBroadcastTargetService _broadcastTargetService;
         private readonly IMessageListService _messageListService;
         private readonly IChatbotGroupService _chatbotGroupService;
+        private readonly IChatbotService _chatbotService;
         private readonly ILogger<ChatbotBroadcastJob> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _config;
 
         public string Name => "Chatbot Broadcast Scheduler";
-        public TimeSpan Interval => TimeSpan.FromMinutes(1);
+        public TimeSpan Interval => TimeSpan.FromMinutes(5);
 
         public ChatbotBroadcastJob(
             IBroadcastScheduleService broadcastScheduleService,
@@ -28,6 +27,7 @@ namespace Chatbot.Scheduler.Job
             IBroadcastTargetService broadcastTargetService,
             IMessageListService messageListService,
             IChatbotGroupService chatbotGroupService,
+            IChatbotService chatbotService,
             ILogger<ChatbotBroadcastJob> logger,
             IHttpClientFactory httpClientFactory,
             IConfiguration config)
@@ -37,6 +37,7 @@ namespace Chatbot.Scheduler.Job
             _broadcastTargetService = broadcastTargetService;
             _messageListService = messageListService;
             _chatbotGroupService = chatbotGroupService;
+            _chatbotService = chatbotService;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _config = config;
@@ -46,13 +47,31 @@ namespace Chatbot.Scheduler.Job
         {
             var apiUrl = _config["BroadcastApi:Url"];
             var apiKey = _config["BroadcastApi:ApiKey"];
-            var llmUrl = _config["LLMApi:Url"];
 
             if (string.IsNullOrEmpty(apiUrl))
             {
                 _logger.LogError("Broadcast API URL not configured.");
                 return;
             }
+
+            //var partsDatas = new[] { new { text = $"Topic: Keutamaan Sholat Jum'at \n\nPertanyaan: Tolong buatkan broadcast message whatsapp dari topic tersebut, Sopan santun, energik, selalu mendoakan kebaikan, membuat jadi ingin bertanya lagi dan harus ada kutipan hadits shahih atau ayat Al-Qur'an yang relevan dengan jawaban, agar para pengguna maslam, Selalu bersemangat dalam agama Islam. Langsung berikan jawaban seolah bukan bot, tanpa perlu basa basi menginformasikan ini broadcast atau ini jawabannya." } };
+
+            //var payloadGeminis = new
+            //{
+            //    contents = new[]
+            //    {
+            //                            new
+            //                            {
+            //                                parts = partsDatas
+            //                            }
+            //                        }
+            //};
+
+            //var messageTexts = "Random: " + await _chatbotService.GetResponseFromGeminiAsync(payloadGeminis);
+
+            //_logger.LogInformation("Broadcast Message: " + messageTexts);
+
+            //return;
 
             //  Step 1: Retrieve all active schedules that are due now 
             var now = DateTime.Now;
@@ -86,7 +105,7 @@ namespace Chatbot.Scheduler.Job
                         continue;
                     }
 
-                    var groupIds = targets.Where(x=>x.TargetType == 'G' && x.ChatbotGroupId.HasValue).Select(x=>x.ChatbotGroupId.Value).ToList();
+                    var groupIds = targets.Where(x => x.TargetType == 'G' && x.ChatbotGroupId.HasValue).Select(x => x.ChatbotGroupId.Value).ToList();
 
                     var groups = await _chatbotGroupService.GetAllGroupsByIdsAsync(groupIds);
                     if (!groups.Any())
@@ -103,21 +122,31 @@ namespace Chatbot.Scheduler.Job
                         var dayIndex = (int)now.DayOfWeek;
                         var messageList = await _messageListService.GetAllAsync();
 
+                        //Get Valid Messages Topic
                         var validMessages = messageList.Where(m => m.IsActive && m.DayOfWeek.HasValue && m.DayOfWeek.Value == dayIndex).ToList();
 
                         if (validMessages.Any())
                         {
+                            //Pick Random Message
                             var random = new Random();
                             var picked = validMessages[random.Next(validMessages.Count)];
 
-                            // Send title as topic to LLM - UPDATE SOON
                             try
                             {
-                            
-                                messageText = string.Empty;
+                                var partsData = new[] { new { text = $"Topic:  {picked.Title} \n\nPertanyaan: Tolong buatkan broadcast message whatsapp dari topic tersebut, Sopan santun, energik, selalu mendoakan kebaikan, membuat jadi ingin bertanya lagi dan harus ada kutipan hadits shahih atau ayat Al-Qur'an yang relevan dengan jawaban, agar para pengguna maslam, Selalu bersemangat dalam agama Islam. Langsung berikan jawaban seolah bukan bot, tanpa perlu basa basi menginformasikan ini broadcast atau ini jawabannya." } };
 
-                                if (string.IsNullOrWhiteSpace(messageText))
-                                    messageText = picked.MessageContent;
+                                var payloadGemini = new
+                                {
+                                    contents = new[]
+                                    {
+                                        new
+                                        {
+                                            parts = partsData
+                                        }
+                                    }
+                                };
+
+                               messageText = "Random: "+ await _chatbotService.GetResponseFromGeminiAsync(payloadGemini);
 
                                 _logger.LogInformation("Random message picked from list: {title}", picked.Title);
                             }
@@ -137,6 +166,8 @@ namespace Chatbot.Scheduler.Job
                     {
                         messageText = message.MessageContent;
                     }
+
+                    _logger.LogInformation("Broadcast Message: " + messageText);
 
                     //  Step 5: Push to broadcast API 
                     var payload = new
