@@ -38,6 +38,31 @@ namespace Chatbot.Service.Services.ChatbotGroup
             return await conn.QueryAsync<ChatbotGroupModel>(sql);
         }
 
+        public async Task<IEnumerable<ChatbotGroupModel>> GetAllGroupsByIdsAsync(List<Guid> ids)
+        {
+            if (ids == null || ids.Count == 0)
+                return Enumerable.Empty<ChatbotGroupModel>();
+
+            using var conn = GetConnection();
+
+            var sql = @"
+                 SELECT 
+                        chatbot_group_id,
+                        group_name,
+                        group_id,
+                        is_receive_broadcast,
+                        created_date,
+                        updated_by,
+                        last_updated,
+                        rowversion
+                FROM chatbot.chatbot_group
+                WHERE chatbot_group_id = ANY(@Ids)
+                ORDER BY created_date DESC;";
+
+            return await conn.QueryAsync<ChatbotGroupModel>(sql, new { Ids = ids });
+        }
+
+
         public async Task<ChatbotGroupModel?> GetGroupByIdAsync(Guid chatbotGroupId)
         {
             using var conn = GetConnection();
