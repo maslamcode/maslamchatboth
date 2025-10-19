@@ -19,7 +19,7 @@ namespace Chatbot.Scheduler.Job
         private readonly IConfiguration _config;
 
         public string Name => "Chatbot Broadcast Scheduler";
-        public TimeSpan Interval => TimeSpan.FromMinutes(5);
+        public TimeSpan Interval => TimeSpan.FromMinutes(1);
 
         public ChatbotBroadcastJob(
             IBroadcastScheduleService broadcastScheduleService,
@@ -75,6 +75,7 @@ namespace Chatbot.Scheduler.Job
 
             //  Step 1: Retrieve all active schedules that are due now 
             var now = DateTime.Now;
+            _logger.LogInformation("Day Of Week: " + (int)now.DayOfWeek);
             var dueSchedules = await _broadcastScheduleService.GetDueSchedulesAsync(now);
 
             if (!dueSchedules.Any())
@@ -108,6 +109,7 @@ namespace Chatbot.Scheduler.Job
                     var groupIds = targets.Where(x => x.TargetType == 'G' && x.ChatbotGroupId.HasValue).Select(x => x.ChatbotGroupId.Value).ToList();
 
                     var groups = await _chatbotGroupService.GetAllGroupsByIdsAsync(groupIds);
+                  
                     if (!groups.Any())
                     {
                         _logger.LogInformation("No chatbot groups found for target groups.");
@@ -175,6 +177,8 @@ namespace Chatbot.Scheduler.Job
                         message = messageText,
                         groupIds = groups.Select(t => t.group_id).ToList()
                     };
+
+                    _logger.LogInformation("Broadcast Groups: " + string.Join(", ", groups.Select(t => t.group_name)));
 
                     var httpClient = _httpClientFactory.CreateClient();
                     httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);

@@ -199,7 +199,7 @@ async function connectToWhatsApp() {
                 const waitSeconds = Math.floor(Math.random() * 20) + 10; // 10–30 detik
                 const waitMs = waitSeconds * 1000;
 
-                console.log(`⏱️ Menunggu ${waitMinutes} menit sebelum reconnect...`);
+                console.log(`⏱️ Menunggu ${waitMs} menit sebelum reconnect...`);
                 await delay(waitMs);
 
                 connectToWhatsApp();
@@ -519,15 +519,14 @@ async function broadcastToGroups(socket, messageText, groupIds) {
         return;
     }
 
-    const groups = loadGroupsFromFile();
+    const finalMessage = messageText.replace(/\\n/g, '\n');
+
 
     console.log(" ====== Broadcasting to", groupIds.length, "groups...");
 
     for (const groupId of groupIds) {
         try {
-            await safeSend(socket, groupId, { text: messageText });
-            const name = groups[groupId]?.name ?? "Unknown";
-            console.log("====== Sent to:", name, `(${groupId})`);
+            await safeSend(socket, groupId, { text: finalMessage });
             await delay(1500);
         } catch (err) {
             console.error("xxxxxx Failed to send to", groupId, ":", err.message);

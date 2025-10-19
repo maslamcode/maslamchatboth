@@ -46,15 +46,15 @@ namespace Chatbot.Service.Services.ChatbotGroup
             using var conn = GetConnection();
 
             var sql = @"
-                SELECT 
-                    chatbot_group_id AS ChatbotGroupId, 
-                    group_name AS GroupName, 
-                    group_id AS GroupId, 
-                    is_receive_broadcast AS IsReceiveBroadcast, 
-                    created_date AS CreatedDate, 
-                    updated_by AS UpdatedBy, 
-                    last_updated AS LastUpdated, 
-                    rowversion AS RowVersion
+                 SELECT 
+                        chatbot_group_id,
+                        group_name,
+                        group_id,
+                        is_receive_broadcast,
+                        created_date,
+                        updated_by,
+                        last_updated,
+                        rowversion
                 FROM chatbot.chatbot_group
                 WHERE chatbot_group_id = ANY(@Ids)
                 ORDER BY created_date DESC;";
