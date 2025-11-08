@@ -99,22 +99,20 @@ namespace Chatbot.Scheduler.Job
                     }
 
                     //  Step 3: Retrieve the target groups 
-                    var targets = await _broadcastTargetService.GetAllAsync();
+                    var targets = (await _broadcastTargetService.GetAllAsync()).Where(t => t.BroadcastMessageId == schedule.BroadcastMessageId).ToList();
                     if (!targets.Any())
                     {
                         _logger.LogInformation("No broadcast targets found for message {id}", schedule.BroadcastMessageId);
                         continue;
                     }
 
-                    var groupIds = targets.Where(x => x.TargetType == 'G' && x.ChatbotGroupId.HasValue).Select(x => x.ChatbotGroupId.Value).ToList();
+                    var groupTargets = targets.Where(t => t.TargetType == 'G' && t.ChatbotGroupId.HasValue).ToList();
 
+                    var personalTargets = targets.Where(t => t.TargetType == 'P' && !string.IsNullOrEmpty(t.NoWa)).ToList();
+
+                    var groupIds = groupTargets.Select(t => t.ChatbotGroupId!.Value).ToList();
                     var groups = await _chatbotGroupService.GetAllGroupsByIdsAsync(groupIds);
-                  
-                    if (!groups.Any())
-                    {
-                        _logger.LogInformation("No chatbot groups found for target groups.");
-                        continue;
-                    }
+
 
                     //  Step 4: Prepare message content 
                     string messageText;
@@ -127,42 +125,42 @@ namespace Chatbot.Scheduler.Job
                         //Get Valid Messages Topic
                         var validMessages = messageList.Where(m => m.IsActive && m.DayOfWeek.HasValue && m.DayOfWeek.Value == dayIndex).ToList();
 
-                        if (validMessages.Any())
+
+                        if (!validMessages.Any())
                         {
-                            //Pick Random Message
-                            var random = new Random();
-                            var picked = validMessages[random.Next(validMessages.Count)];
+                            _logger.LogWarning("No valid random messages for today ({dayIndex})", dayIndex);
+                            continue;
+                        }
 
-                            try
+                        //Pick Random Message
+                        var random = new Random();
+                        var picked = validMessages[random.Next(validMessages.Count)];
+
+                        try
+                        {
+                            var partsData = new[] { new { text = $"Topic:  {picked.Title} \n\nPertanyaan: Tolong buatkan broadcast message whatsapp dari topic tersebut, Sopan santun, energik, selalu mendoakan kebaikan, membuat jadi ingin bertanya lagi dan harus ada kutipan hadits shahih atau ayat Al-Qur'an yang relevan dengan jawaban, agar para pengguna maslam, Selalu bersemangat dalam agama Islam. Langsung berikan jawaban seolah bukan bot, tanpa perlu basa basi menginformasikan ini broadcast atau ini jawabannya." } };
+
+                            var payloadGemini = new
                             {
-                                var partsData = new[] { new { text = $"Topic:  {picked.Title} \n\nPertanyaan: Tolong buatkan broadcast message whatsapp dari topic tersebut, Sopan santun, energik, selalu mendoakan kebaikan, membuat jadi ingin bertanya lagi dan harus ada kutipan hadits shahih atau ayat Al-Qur'an yang relevan dengan jawaban, agar para pengguna maslam, Selalu bersemangat dalam agama Islam. Langsung berikan jawaban seolah bukan bot, tanpa perlu basa basi menginformasikan ini broadcast atau ini jawabannya." } };
-
-                                var payloadGemini = new
+                                contents = new[]
                                 {
-                                    contents = new[]
-                                    {
                                         new
                                         {
                                             parts = partsData
                                         }
                                     }
-                                };
+                            };
 
-                               messageText = "Random: "+ await _chatbotService.GetResponseFromGeminiAsync(payloadGemini);
+                            messageText = "Random: " + await _chatbotService.GetResponseFromGeminiAsync(payloadGemini);
 
-                                _logger.LogInformation("Random message picked from list: {title}", picked.Title);
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Error getting LLM response, fallback to message content.");
-                                messageText = picked.MessageContent;
-                            }
+                            _logger.LogInformation("Random message picked from list: {title}", picked.Title);
                         }
-                        else
+                        catch (Exception ex)
                         {
-                            _logger.LogWarning("No valid random messages for today ({dayIndex})", dayIndex);
-                            continue;
+                            _logger.LogError(ex, "Error getting LLM response, fallback to message content.");
+                            messageText = picked.MessageContent;
                         }
+
                     }
                     else
                     {
@@ -170,29 +168,45 @@ namespace Chatbot.Scheduler.Job
                     }
 
                     _logger.LogInformation("Broadcast Message: " + messageText);
-
-                    //  Step 5: Push to broadcast API 
-                    var payload = new
-                    {
-                        message = messageText,
-                        groupIds = groups.Select(t => t.group_id).ToList()
-                    };
-
-                    _logger.LogInformation("Broadcast Groups: " + string.Join(", ", groups.Select(t => t.group_name)));
-
                     var httpClient = _httpClientFactory.CreateClient();
                     httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
 
-                    var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-bulk", payload, cancellationToken);
+                    // Step 5: Send to group targets
+                    if (groups.Any())
+                    {
+                        var groupPayload = new
+                        {
+                            message = messageText,
+                            groupIds = groups.Select(g => g.group_id).ToList()
+                        };
 
-                    if (response.IsSuccessStatusCode)
-                    {
-                        _logger.LogInformation("Broadcast sent successfully for schedule {id}", schedule.BroadcastScheduleId);
+                        _logger.LogInformation("Broadcast Groups: {groups}", string.Join(", ", groups.Select(g => g.group_name)));
+
+                        var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-bulk", groupPayload, cancellationToken);
+
+                        if (response.IsSuccessStatusCode)
+                            _logger.LogInformation("Broadcast sent successfully to groups for schedule {id}", schedule.BroadcastScheduleId);
+                        else
+                            _logger.LogError("Failed to send broadcast to groups for schedule {id}: {status}", schedule.BroadcastScheduleId, response.StatusCode);
                     }
-                    else
+
+                    // Step 6: Send to personal targets
+                    foreach (var p in personalTargets)
                     {
-                        _logger.LogError("Failed to send broadcast for schedule {id}: {status}",
-                            schedule.BroadcastScheduleId, response.StatusCode);
+                        var personalPayload = new
+                        {
+                            message = messageText,
+                            phoneNumber = p.NoWa
+                        };
+
+                        _logger.LogInformation("Broadcast Personal: {no_wa}", p.NoWa);
+
+                        var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-personal", personalPayload, cancellationToken);
+
+                        if (response.IsSuccessStatusCode)
+                            _logger.LogInformation("Broadcast sent successfully to {no_wa}", p.NoWa);
+                        else
+                            _logger.LogError("Failed to send broadcast to {no_wa}: {status}", p.NoWa, response.StatusCode);
                     }
                 }
                 catch (Exception ex)

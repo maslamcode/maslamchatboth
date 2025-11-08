@@ -26,6 +26,7 @@ namespace Chatbot.Service.Services.Broadcast
             const string sql = @"
                 SELECT 
                     broadcast_target_id AS BroadcastTargetId,
+                    broadcast_message_id AS BroadcastMessageId,
                     created_by AS CreatedBy,
                     created_date AS CreatedDate,
                     updated_by AS UpdatedBy,

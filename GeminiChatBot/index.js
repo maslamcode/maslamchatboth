@@ -230,6 +230,8 @@ async function connectToWhatsApp() {
             const chatId = jidNormalizedUser(phone);
 
             if (!fromMe && phone.endsWith("@g.us")) {
+
+                //TODO - Chatbot Number from Service/DB
                 const tag = "@6281360019090"; // ← ganti sesuai nomor kamu, maslam
                 const tag2 = "@119662469746719";
 
