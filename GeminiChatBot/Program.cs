@@ -1,5 +1,9 @@
 ﻿using Chatbot.Service.Model.ChatbotGroup;
+using Chatbot.Service.Services.ChatbotCharacter;
 using Chatbot.Service.Services.ChatbotGroup;
+using Chatbot.Service.Services.ChatbotNumber;
+using Chatbot.Service.Services.ChatbotNumberTask;
+using Chatbot.Service.Services.ChatbotTaskList;
 using GeminiChatBot;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
@@ -58,6 +62,58 @@ class Program
                     }
 
                     Console.WriteLine($"Bulk insert completed. {totalInserted} groups inserted.");
+                }
+                else if (args[0].Equals("get-number-with-character", StringComparison.OrdinalIgnoreCase))
+                {
+                    var config = new ConfigurationBuilder()
+                        .AddJsonFile("appsettings.json")
+                        .Build();
+
+                    var numberService = new ChatbotNumberService(config);
+                    var characterService = new ChatbotCharacterService(config);
+                    var numberTaskService = new ChatbotNumberTaskService(config);
+                    var taskListService = new ChatbotTaskListService(config);
+
+                    var numbers = await numberService.GetAllNumbersAsync();
+                    var first = numbers.FirstOrDefault();
+
+                    if (first == null)
+                    {
+                        Console.WriteLine("No chatbot number found.");
+                        return;
+                    }
+
+                    var character = await characterService.GetCharacterByIdAsync(first.chatbot_character_id);
+
+                    var numberTasks = await numberTaskService.GetAllTasksByNumberIdAsync(first.chatbot_number_id);
+
+                    var taskListIds = numberTasks.Select(t => t.chatbot_task_list_id).Distinct().ToList();
+                    var taskLists = new List<object>();
+
+                    foreach (var id in taskListIds)
+                    {
+                        var tl = await taskListService.GetTaskListByIdAsync(id);
+                        if (tl != null)
+                        {
+                            taskLists.Add(tl);
+                        }
+                    }
+
+                    var combined = new
+                    {
+                        number = first,
+                        character = character,
+                        tasks = numberTasks,
+                        taskLists = taskLists
+                    };
+
+                    var json = JsonSerializer.Serialize(combined, new JsonSerializerOptions
+                    {
+                        WriteIndented = false
+                    });
+
+                    Console.WriteLine($"__JSON_START__{json}__JSON_END__");
+
                 }
                 else
                 {

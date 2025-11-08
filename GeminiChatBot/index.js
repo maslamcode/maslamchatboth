@@ -11,13 +11,12 @@ const fs = require("fs");
 const qrcode = require("qrcode-terminal");
 const path = require("path");
 
-let waSocket = null; // general holder
-
 // ==== Express API ====
 const express = require("express");
 const multer = require("multer");
 const API_KEY = "TCH0qIeozGfEkHGOSZuaYJaI3GKjylsnjnwiFMRPmltSsPRbhpyBatvzhYeHco9NnZXSxp628cAZrx5EkInTUqOb7LXBNkECgZFtJDnt07mVyarrAGwGH4W37cKzlSi3";
 
+let waSocket = null; // general holder
 
 
 function checkApiKey(req, res, next) {
@@ -64,7 +63,6 @@ app.delete("/files/:name", checkApiKey, (req, res) => {
         res.json({ message: "🗑️ File deleted" });
     });
 });
-
 
 app.post("/broadcast", checkApiKey, async (req, res) => {
     const { message } = req.body;
@@ -155,6 +153,21 @@ async function connectToWhatsApp() {
         } else if (connection === "open") {
             console.log(now + " ✅ WhatsApp Connected.");
 
+            if (socket.user) {
+                console.log("My WhatsApp JID:", socket.user.id);
+                console.log("My number:", socket.user.id.split(':')[0]);
+
+                if (socket.user.lid) {
+                    console.log("📛 My WhatsApp LID:", `@${socket.user.lid}`);
+                }
+
+                const creds = await socket.authState.creds;
+                if (creds && creds.me && creds.me.lid) {
+                    console.log("📛 My WhatsApp LID (from creds):", `@${creds.me.lid}`);
+                }
+            }
+
+
             try {
                 const groups = await socket.groupFetchAllParticipating();
                
@@ -231,28 +244,39 @@ async function connectToWhatsApp() {
 
             if (!fromMe && phone.endsWith("@g.us")) {
 
-                //TODO - Chatbot Number from Service/DB
-                const tag = "@6281360019090"; // ← ganti sesuai nomor kamu, maslam
-                const tag2 = "@119662469746719";
+                const tag = `@${globChatbot.chatbotNumber.nomor?.replace(/[^0-9]/g, '') || ''}`;
+                const tag2 = `@${globChatbot.chatbotNumber.id || ''}`;
 
                 //const tag = "@6282260091545"; // ← ganti sesuai nomor kamu, siven
                 //const tag2 = "@8603490619632";
 
+                console.log(`tag###################`, tag);
+                console.log(`tag2##################`, tag2);
+
                 console.log(now + " 📥 Pesan masuk dari grup:", pesan);
 
-                const keywords = [
-                    "sami",
-                    "perkenalkan",
-                    "kenalkan",
-                    "kenalin",
-                    "assalamu'alaykum",
-                    "assalamualaikum",
-                    "assalamu'alaikum",
-                    "bertanya",
-                    "tanya",
-                    "nanya",
-                    "maslam",
-                ];
+                //const keywords = [
+                //    "sami",
+                //    "perkenalkan",
+                //    "kenalkan",
+                //    "kenalin",
+                //    "assalamu'alaykum",
+                //    "assalamualaikum",
+                //    "assalamu'alaikum",
+                //    "bertanya",
+                //    "tanya",
+                //    "nanya",
+                //    "maslam",
+                //];
+
+                const keywords = globChatbot.chatbotTaskLists
+                    .map(t => t.task_list)
+                    .filter(Boolean)
+                    .flatMap(t =>
+                        t.split(",")
+                            .map(k => k.trim().toLowerCase())
+                            .filter(k => k.length > 0)
+                    );
 
                 const cleanText = (pesan || "")
                     .normalize("NFKD")                
@@ -448,6 +472,42 @@ async function sentToCSharp(text) {
     });
 }
 
+async function getChatbotNumberWithCharacter() {
+    return new Promise((resolve, reject) => {
+        const process = spawn("dotnet", ["GeminiChatBot.dll", "get-number-with-character"]);
+
+        let result = "";
+
+        process.stdout.on("data", (data) => {
+            result += data.toString();
+        });
+
+        process.stderr.on("data", (data) => {
+            console.error("C# stderr:", data.toString());
+        });
+
+        process.on("close", (code) => {
+            try {
+                const match = result.match(/__JSON_START__(.*)__JSON_END__/s);
+
+                if (!match) {
+                    console.error("⚠️ No valid JSON output detected from C#");
+                    console.error("Raw output:", result);
+                    return reject(new Error("Failed to parse C# JSON output"));
+                }
+
+                const jsonString = match[1];
+                const data = JSON.parse(jsonString);
+
+                resolve(data);
+            } catch (err) {
+                console.error("❌ Failed to parse JSON:", err.message);
+                console.error("Raw result:", result);
+                reject(err);
+            }
+        });
+    });
+}
 
 async function bulkInsertGroupsToCSharp(groups) {
     return new Promise((resolve, reject) => {
@@ -493,8 +553,8 @@ function loadGroupsFromFile() {
     return {};
 }
 
-async function broadcastToAllGroups(socket, messageText) {
-    if (!socket) {
+async function broadcastToAllGroups(waSocket, messageText) {
+    if (!waSocket) {
         console.error("xxxxxx Socket is not connected!");
         return;
     }
@@ -506,7 +566,7 @@ async function broadcastToAllGroups(socket, messageText) {
 
     for (const groupId of groupIds) {
         try {
-            await safeSend(socket, groupId, { text: messageText });
+            await safeSend(waSocket, groupId, { text: messageText });
             console.log("====== Sent to:", groups[groupId].name, `(${groupId})`);
             await delay(1500);
         } catch (err) {
@@ -515,8 +575,8 @@ async function broadcastToAllGroups(socket, messageText) {
     }
 }
 
-async function broadcastToGroups(socket, messageText, groupIds) {
-    if (!socket) {
+async function broadcastToGroups(waSocket, messageText, groupIds) {
+    if (!waSocket) {
         console.error("xxxxxx Socket is not connected!");
         return;
     }
@@ -528,7 +588,7 @@ async function broadcastToGroups(socket, messageText, groupIds) {
 
     for (const groupId of groupIds) {
         try {
-            await safeSend(socket, groupId, { text: finalMessage });
+            await safeSend(waSocket, groupId, { text: finalMessage });
             await delay(1500);
         } catch (err) {
             console.error("xxxxxx Failed to send to", groupId, ":", err.message);
@@ -541,11 +601,37 @@ async function broadcastToGroups(socket, messageText, groupIds) {
 // 🟢 Start app
 (async () => {
     try {
+        console.log("🚀 Initializing chatbot globals...");
+
+        const data = await getChatbotNumberWithCharacter();
+
+        if (!globalThis.globChatbot) {
+            globalThis.globChatbot = {};
+        }
+
+        globChatbot.chatbotNumber = data.number || null;
+        globChatbot.chatbotCharacter = data.character || null;
+        globChatbot.chatbotNumberTasks = Array.isArray(data.tasks) ? data.tasks : [];
+        globChatbot.chatbotTaskLists = Array.isArray(data.taskLists) ? data.taskLists : [];
+
+        console.log("✅ Chatbot globals loaded:", {
+            number: globChatbot.chatbotNumber?.nama || "(none)",
+            character: globChatbot.chatbotCharacter?.nama || "(none)",
+            tasks: globChatbot.chatbotNumberTasks.length,
+            taskLists: globChatbot.chatbotTaskLists.length
+        });
+
         await connectToWhatsApp();
     } catch (err) {
-        console.error("❌ Fatal error:", err);
+        console.error("❌ Fatal error during startup:", err);
+
+        // Retry logic with delay
+        const delay = (ms) => new Promise(res => setTimeout(res, ms));
         console.log("🔁 Restarting in 10 seconds...");
         await delay(10000);
-        connectToWhatsApp();
+
+        // Try to reconnect cleanly
+        await connectToWhatsApp();
     }
 })();
+

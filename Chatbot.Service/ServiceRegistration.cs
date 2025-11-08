@@ -5,6 +5,10 @@ using Chatbot.Service.Services.MessageList;
 using Chatbot.Service.Services.Sholat;
 using Chatbot.Service.Services.Broadcast;
 using Microsoft.Extensions.DependencyInjection;
+using Chatbot.Service.Services.ChatbotNumber;
+using Chatbot.Service.Services.ChatbotCharacter;
+using Chatbot.Service.Services.ChatbotNumberTask;
+using Chatbot.Service.Services.ChatbotTaskList;
 
 namespace Chatbot.Service
 {
@@ -25,6 +29,10 @@ namespace Chatbot.Service
             services.AddSingleton<ISholatService, SholatService>();
 
             services.AddSingleton<IGoogleDriveService, GoogleDriveService>();
+            services.AddSingleton<IChatbotNumberService, ChatbotNumberService>();
+            services.AddSingleton<IChatbotCharacterService, ChatbotCharacterService>();
+            services.AddSingleton<IChatbotNumberTaskService, ChatbotNumberTaskService>();
+            services.AddSingleton<IChatbotTaskListService, ChatbotTaskListService>();
 
             return services;
         }
