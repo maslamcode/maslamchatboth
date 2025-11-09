@@ -10,6 +10,8 @@ using System.Globalization;
 using Chatbot.Service.Services.Chatbot;
 using Chatbot.Service.Services.Sholat;
 using Chatbot.Service.Services.GoogleDrive;
+using Chatbot.Service.Services.ChatbotCharacter;
+using Chatbot.Service.Services.ChatbotNumber;
 
 namespace GeminiChatBot
 {
@@ -21,6 +23,8 @@ namespace GeminiChatBot
 
         private static IChatbotService _chatBotService;
         private static ISholatService _sholatService;
+        private static IChatbotNumberService _numberService;
+        private static IChatbotCharacterService _characterService;
         //private static IGoogleDriveService _googleDriveService;
         private static IConfiguration _configuration;
 
@@ -34,6 +38,8 @@ namespace GeminiChatBot
 
             _chatBotService = new ChatbotService(_configuration);
             _sholatService = new SholatService(_configuration);
+            _numberService = new ChatbotNumberService(_configuration);
+            _characterService = new ChatbotCharacterService(_configuration);
             //_googleDriveService = new GoogleDriveService();
         }
 
@@ -78,9 +84,22 @@ namespace GeminiChatBot
                 string geminiVersion = _configuration["Config:geminVersi"] ?? string.Empty;
                 string googleApiKey = _configuration["Config:googleApiKey"] ?? string.Empty;
 
-                string[] provisionsArray = _configuration.GetSection("Config:provision").Get<string[]>() ?? Array.Empty<string>();
+                var numbers = await _numberService.GetAllNumbersAsync();
+                var first = numbers.FirstOrDefault();
 
-                string provision = string.Join(Environment.NewLine, provisionsArray);
+                if (first == null)
+                {
+                    Console.WriteLine("No chatbot number found.");
+                    return;
+                }
+                var character = await _characterService.GetCharacterByIdAsync(first.chatbot_character_id);
+
+                if(character == null)
+                {
+                    Console.WriteLine("No character found."); return;
+                }
+
+                string provision = character.persona;
 
                 var partsData = Array.Empty<object>();
                 var response = string.Empty;
