@@ -10,6 +10,7 @@ namespace Chatbot.Service.Model.Chatbot
         public Guid? updated_by { get; set; }
         public DateTime? last_updated { get; set; }
         public DateTime? rowversion { get; set; }
+        public DateTime? last_executed_date { get; set; }
 
         public Guid broadcast_message_id { get; set; }
 

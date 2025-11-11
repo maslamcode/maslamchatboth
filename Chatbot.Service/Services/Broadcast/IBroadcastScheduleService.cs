@@ -6,5 +6,6 @@ namespace Chatbot.Service.Services.Broadcast
     {
         Task<IEnumerable<BroadcastScheduleModel>> GetAllAsync();
         Task<IEnumerable<BroadcastScheduleModel>> GetDueSchedulesAsync(DateTime now);
+        Task UpdateLastExecutedDateAsync(Guid broadcastScheduleId, DateTime executedAt);
     }
 }

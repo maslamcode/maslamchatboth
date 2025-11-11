@@ -99,7 +99,7 @@ namespace Chatbot.Scheduler.Job
                     }
 
                     //  Step 3: Retrieve the target groups 
-                    _logger.LogInformation("By Broadcast Message Id="+ schedule.broadcast_message_id);
+                    _logger.LogInformation("By Broadcast Message Id=" + schedule.broadcast_message_id);
                     var targets = await _broadcastTargetService.GetByBroadcastMessageIdAsync(schedule.broadcast_message_id);
 
                     if (!targets.Any())
@@ -108,7 +108,7 @@ namespace Chatbot.Scheduler.Job
                         continue;
                     }
 
-                    _logger.LogInformation("targets="+targets.Count());
+                    _logger.LogInformation("targets=" + targets.Count());
                     foreach (var target in targets)
                     {
                         _logger.LogInformation("id=" + target.broadcast_target_id);
@@ -200,9 +200,15 @@ namespace Chatbot.Scheduler.Job
                         var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-bulk", groupPayload, cancellationToken);
 
                         if (response.IsSuccessStatusCode)
+                        {
+                            await _broadcastScheduleService.UpdateLastExecutedDateAsync(schedule.broadcast_schedule_id, DateTime.Now);
+
                             _logger.LogInformation("Broadcast sent successfully to groups for schedule {id}", schedule.broadcast_schedule_id);
+                        }
                         else
+                        {
                             _logger.LogError("Failed to send broadcast to groups for schedule {id}: {status}", schedule.broadcast_schedule_id, response.StatusCode);
+                        }
                     }
 
                     // Step 6: Send to personal targets
@@ -219,9 +225,14 @@ namespace Chatbot.Scheduler.Job
                         var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-personal", personalPayload, cancellationToken);
 
                         if (response.IsSuccessStatusCode)
+                        {
+                            await _broadcastScheduleService.UpdateLastExecutedDateAsync(schedule.broadcast_schedule_id, DateTime.Now);
                             _logger.LogInformation("Broadcast sent successfully to {no_wa}", p.no_wa);
+                        }
                         else
+                        {
                             _logger.LogError("Failed to send broadcast to {no_wa}: {status}", p.no_wa, response.StatusCode);
+                        }
                     }
                 }
                 catch (Exception ex)

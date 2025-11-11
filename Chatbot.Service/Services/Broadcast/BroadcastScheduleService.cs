@@ -32,6 +32,7 @@ namespace Chatbot.Service.Services.Broadcast
                 updated_by,
                 last_updated,
                 rowversion,
+                last_executed_date,
                 broadcast_message_id,
                 schedule_type,
                 schedule_datetime,
@@ -44,6 +45,20 @@ namespace Chatbot.Service.Services.Broadcast
             return await conn.QueryAsync<BroadcastScheduleModel>(sql);
         }
 
+        public async Task UpdateLastExecutedDateAsync(Guid broadcastScheduleId, DateTime executedAt)
+        {
+            using var conn = GetConnection();
+
+            const string sql = @"
+                UPDATE chatbot.broadcast_schedule
+                SET last_executed_date = @executedAt,
+                    last_updated = GETDATE()
+                WHERE broadcast_schedule_id = @broadcastScheduleId;
+            ";
+
+            await conn.ExecuteAsync(sql, new { executedAt, broadcastScheduleId });
+        }
+
         public async Task<IEnumerable<BroadcastScheduleModel>> GetDueSchedulesAsync(DateTime now)
         {
             var objs = await GetAllAsync();
@@ -51,18 +66,22 @@ namespace Chatbot.Service.Services.Broadcast
             return objs
                 .Where(x => x.is_active.HasValue && x.is_active.Value &&
                     (
-                        // One-time
-                        (x.schedule_type == 'O' && x.schedule_datetime <= now) ||
-                        
-                        // Weekly
-                        (x.schedule_type == 'W' &&
+                          // One-time
+                          (x.schedule_type == 'O' &&
+                         x.schedule_datetime <= now &&
+                         x.last_executed_date == null) ||
+
+                         // Weekly
+                         (x.schedule_type == 'W' &&
                          x.day_of_week == (int)now.DayOfWeek &&
-                         x.schedule_time <= now.TimeOfDay) ||
+                         x.schedule_time <= now.TimeOfDay &&
+                         (x.last_executed_date == null || x.last_executed_date.Value.Date != now.Date)) ||
 
                         // Monthly
                         (x.schedule_type == 'M' &&
                          x.day_of_week == (int)now.Day &&
-                         x.schedule_time <= now.TimeOfDay)
+                         x.schedule_time <= now.TimeOfDay &&
+                         (x.last_executed_date == null || x.last_executed_date.Value.Date != now.Date))
                     ))
                 .ToList();
         }
