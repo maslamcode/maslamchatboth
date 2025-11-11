@@ -4,27 +4,27 @@ namespace Chatbot.Service.Model.Chatbot
 {
     public class BroadcastScheduleModel
     {
-        public Guid BroadcastScheduleId { get; set; }
-        public Guid CreatedBy { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public Guid? UpdatedBy { get; set; }
-        public DateTime? LastUpdated { get; set; }
-        public DateTime? RowVersion { get; set; }
+        public Guid broadcast_schedule_id { get; set; }
+        public Guid created_by { get; set; }
+        public DateTime created_date { get; set; }
+        public Guid? updated_by { get; set; }
+        public DateTime? last_updated { get; set; }
+        public DateTime? rowversion { get; set; }
 
-        public Guid BroadcastMessageId { get; set; }
+        public Guid broadcast_message_id { get; set; }
 
         /// 'O' : Once, 'W' : Weekly, 'M' : Monthly
-        public char ScheduleType { get; set; }
+        public char schedule_type { get; set; }
 
         /// Used for one-time (O) schedule type.
-        public DateTime? ScheduleDateTime { get; set; }
+        public DateTime? schedule_datetime { get; set; }
 
         /// 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-        public short? DayOfWeek { get; set; }
+        public short? day_of_week { get; set; }
 
         /// Time of day for recurring schedules.
-        public TimeSpan? ScheduleTime { get; set; }
+        public TimeSpan? schedule_time { get; set; }
 
-        public bool? IsActive { get; set; }
+        public bool? is_active { get; set; }
     }
 }

@@ -4,21 +4,21 @@ namespace Chatbot.Service.Model.Chatbot
 {
     public class BroadcastTargetModel
     {
-        public Guid BroadcastTargetId { get; set; }
-        public Guid BroadcastMessageId { get; set; }
-        public Guid CreatedBy { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public Guid? UpdatedBy { get; set; }
-        public DateTime? LastUpdated { get; set; }
-        public DateTime? RowVersion { get; set; }
+        public Guid broadcast_target_id { get; set; }
+        public Guid broadcast_message_id { get; set; }
+        public Guid created_by { get; set; }
+        public DateTime created_date { get; set; }
+        public Guid? updated_by { get; set; }
+        public DateTime? last_updated { get; set; }
+        public DateTime? rowversion { get; set; }
 
         /// G = Group, P = Personal
-        public char TargetType { get; set; }
+        public char target_type { get; set; }
 
         /// Filled if Type = G (Group)
-        public Guid? ChatbotGroupId { get; set; }
+        public Guid? chatbot_group_id { get; set; }
 
         /// Filled if Type = P (Personal)
-        public string? NoWa { get; set; }
+        public string? no_wa { get; set; }
     }
 }

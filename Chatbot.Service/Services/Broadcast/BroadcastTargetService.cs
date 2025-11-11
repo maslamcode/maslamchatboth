@@ -24,21 +24,45 @@ namespace Chatbot.Service.Services.Broadcast
             using var conn = GetConnection();
 
             const string sql = @"
-                SELECT 
-                    broadcast_target_id AS BroadcastTargetId,
-                    broadcast_message_id AS BroadcastMessageId,
-                    created_by AS CreatedBy,
-                    created_date AS CreatedDate,
-                    updated_by AS UpdatedBy,
-                    last_updated AS LastUpdated,
-                    rowversion AS RowVersion,
-                    target_type AS TargetType,
-                    chatbot_group_id AS ChatbotGroupId,
-                    no_wa AS NoWa
-                FROM chatbot.broadcast_target
-                ORDER BY created_date DESC;";
+            SELECT 
+                broadcast_target_id,
+                broadcast_message_id,
+                created_by,
+                created_date,
+                updated_by,
+                last_updated,
+                rowversion,
+                target_type,
+                chatbot_group_id,
+                no_wa
+            FROM chatbot.broadcast_target
+            ORDER BY created_date DESC;";
 
             return await conn.QueryAsync<BroadcastTargetModel>(sql);
         }
+
+        public async Task<IEnumerable<BroadcastTargetModel>> GetByBroadcastMessageIdAsync(Guid broadcastMessageId)
+        {
+            using var conn = GetConnection();
+
+            const string sql = @"
+            SELECT 
+                broadcast_target_id,
+                broadcast_message_id,
+                created_by,
+                created_date,
+                updated_by,
+                last_updated,
+                rowversion,
+                target_type,
+                chatbot_group_id,
+                no_wa
+            FROM chatbot.broadcast_target
+            WHERE broadcast_message_id = @broadcastMessageId
+            ORDER BY created_date DESC;";
+
+            return await conn.QueryAsync<BroadcastTargetModel>(sql, new { broadcastMessageId });
+        }
+
     }
 }

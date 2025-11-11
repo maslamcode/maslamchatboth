@@ -20,16 +20,18 @@ let waSocket = null; // general holder
 
 
 function checkApiKey(req, res, next) {
-    const key = req.headers["x-api-key"];
-    if (key && key === API_KEY) {
-        next(); // valid → continue
-    } else {
-        res.status(401).json({ error: "Unauthorized - invalid API key" });
+    const key = req.headers['x-api-key'];
+
+    if (!key || key !== API_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
+
+    next(); 
 }
 
+
 const app = express();
-const port = 5555;
+const port = 90;
 
 const uploadFolder = path.join(__dirname, "DataFiles");
 if (!fs.existsSync(uploadFolder)) {
@@ -44,6 +46,10 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => cb(null, file.originalname)
 });
 const upload = multer({ storage });
+
+app.get("/test", (req, res) => {
+    res.json({ ok: true });
+});
 
 app.get("/files", checkApiKey, (req, res) => {
     fs.readdir(uploadFolder, (err, files) => {
@@ -99,6 +105,30 @@ app.post("/broadcast-bulk", checkApiKey, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+app.post("/broadcast-personal", checkApiKey, async (req, res) => {
+    const { message, phoneNumber } = req.body;
+    const now = new Date().toISOString();
+
+    console.log(`\n🕐 [${now}] Incoming /broadcast-personal request`);
+    console.log("Request body:", JSON.stringify(req.body, null, 2));
+
+    if (!message || !phoneNumber) {
+        console.warn("⚠️ Invalid request: message or phoneNumber missing");
+        return res.status(400).json({ error: "Message and phoneNumber required" });
+    }
+
+    try {
+        console.log(`📢 Starting personal broadcast to ${phoneNumber}`);
+        await broadcastToPersonals(waSocket, message, [phoneNumber]); 
+        console.log(`✅ Personal broadcast completed to ${phoneNumber} at ${now}`);
+        res.json({ message: `======= Broadcast sent to ${phoneNumber}` });
+    } catch (err) {
+        console.error("❌ Personal broadcast error:", err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 
 
@@ -595,6 +625,33 @@ async function broadcastToGroups(waSocket, messageText, groupIds) {
         }
     }
 }
+
+async function broadcastToPersonals(waSocket, messageText, phoneNumbers) {
+    if (!waSocket) {
+        console.error("xxxxxx Socket is not connected!");
+        return;
+    }
+
+    const finalMessage = messageText.replace(/\\n/g, '\n');
+
+    console.log(" ====== Broadcasting to", phoneNumbers.length, "personal numbers...");
+
+    for (const number of phoneNumbers) {
+        try {
+
+            const jid = number.endsWith("@s.whatsapp.net") ? number : `${number}@s.whatsapp.net`;
+
+            await safeSend(waSocket, jid, { text: finalMessage });
+            console.log(`✅ Sent to personal number: ${jid}`);
+            await delay(1500);
+        } catch (err) {
+            console.error("xxxxxx Failed to send to", number, ":", err.message);
+        }
+    }
+
+    console.log(`✅ Completed broadcasting to ${phoneNumbers.length} personal numbers`);
+}
+
 
 
 

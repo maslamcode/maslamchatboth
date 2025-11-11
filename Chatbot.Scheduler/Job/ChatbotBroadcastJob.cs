@@ -91,28 +91,43 @@ namespace Chatbot.Scheduler.Job
                 try
                 {
                     //  Step 2: Retrieve the broadcast message content 
-                    var message = await _broadcastMessageService.GetByIdAsync(schedule.BroadcastMessageId);
+                    var message = await _broadcastMessageService.GetByIdAsync(schedule.broadcast_message_id);
                     if (message == null)
                     {
-                        _logger.LogWarning("Message not found for schedule {id}", schedule.BroadcastScheduleId);
+                        _logger.LogWarning("Message not found for schedule {id}", schedule.broadcast_schedule_id);
                         continue;
                     }
 
                     //  Step 3: Retrieve the target groups 
-                    var targets = (await _broadcastTargetService.GetAllAsync()).Where(t => t.BroadcastMessageId == schedule.BroadcastMessageId).ToList();
+                    _logger.LogInformation("By Broadcast Message Id="+ schedule.broadcast_message_id);
+                    var targets = await _broadcastTargetService.GetByBroadcastMessageIdAsync(schedule.broadcast_message_id);
+
                     if (!targets.Any())
                     {
-                        _logger.LogInformation("No broadcast targets found for message {id}", schedule.BroadcastMessageId);
+                        _logger.LogInformation("No broadcast targets found for message {id}", schedule.broadcast_message_id);
                         continue;
                     }
 
-                    var groupTargets = targets.Where(t => t.TargetType == 'G' && t.ChatbotGroupId.HasValue).ToList();
+                    _logger.LogInformation("targets="+targets.Count());
+                    foreach (var target in targets)
+                    {
+                        _logger.LogInformation("id=" + target.broadcast_target_id);
+                        _logger.LogInformation("broadcast_message_id=" + target.broadcast_message_id);
+                        _logger.LogInformation("chatbot_group_id=" + target.chatbot_group_id);
+                        _logger.LogInformation("target_type=" + target.target_type);
+                    }
 
-                    var personalTargets = targets.Where(t => t.TargetType == 'P' && !string.IsNullOrEmpty(t.NoWa)).ToList();
 
-                    var groupIds = groupTargets.Select(t => t.ChatbotGroupId!.Value).ToList();
+                    var groupTargets = targets.Where(t => t.target_type == 'G' && t.chatbot_group_id.HasValue).ToList();
+                    _logger.LogInformation("groupTargets=" + groupTargets.Count());
+
+                    var personalTargets = targets.Where(t => t.target_type == 'P' && !string.IsNullOrEmpty(t.no_wa)).ToList();
+
+                    var groupIds = groupTargets.Select(t => t.chatbot_group_id!.Value).ToList();
                     var groups = await _chatbotGroupService.GetAllGroupsByIdsAsync(groupIds);
 
+                    _logger.LogInformation("groupIds=" + groupIds.Count());
+                    _logger.LogInformation("groups=" + groups.Count());
 
                     //  Step 4: Prepare message content 
                     string messageText;
@@ -185,9 +200,9 @@ namespace Chatbot.Scheduler.Job
                         var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-bulk", groupPayload, cancellationToken);
 
                         if (response.IsSuccessStatusCode)
-                            _logger.LogInformation("Broadcast sent successfully to groups for schedule {id}", schedule.BroadcastScheduleId);
+                            _logger.LogInformation("Broadcast sent successfully to groups for schedule {id}", schedule.broadcast_schedule_id);
                         else
-                            _logger.LogError("Failed to send broadcast to groups for schedule {id}: {status}", schedule.BroadcastScheduleId, response.StatusCode);
+                            _logger.LogError("Failed to send broadcast to groups for schedule {id}: {status}", schedule.broadcast_schedule_id, response.StatusCode);
                     }
 
                     // Step 6: Send to personal targets
@@ -196,22 +211,22 @@ namespace Chatbot.Scheduler.Job
                         var personalPayload = new
                         {
                             message = messageText,
-                            phoneNumber = p.NoWa
+                            phoneNumber = p.no_wa
                         };
 
-                        _logger.LogInformation("Broadcast Personal: {no_wa}", p.NoWa);
+                        _logger.LogInformation("Broadcast Personal: {no_wa}", p.no_wa);
 
                         var response = await httpClient.PostAsJsonAsync($"{apiUrl}/broadcast-personal", personalPayload, cancellationToken);
 
                         if (response.IsSuccessStatusCode)
-                            _logger.LogInformation("Broadcast sent successfully to {no_wa}", p.NoWa);
+                            _logger.LogInformation("Broadcast sent successfully to {no_wa}", p.no_wa);
                         else
-                            _logger.LogError("Failed to send broadcast to {no_wa}: {status}", p.NoWa, response.StatusCode);
+                            _logger.LogError("Failed to send broadcast to {no_wa}: {status}", p.no_wa, response.StatusCode);
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error executing broadcast schedule {id}", schedule.BroadcastScheduleId);
+                    _logger.LogError(ex, "Error executing broadcast schedule {id}", schedule.broadcast_schedule_id);
                 }
             }
         }
