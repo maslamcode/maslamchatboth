@@ -10,6 +10,7 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const qrcode = require("qrcode-terminal");
 const path = require("path");
+const QRCode = require("qrcode");
 
 // ==== Express API ====
 const express = require("express");
@@ -17,6 +18,9 @@ const multer = require("multer");
 const API_KEY = "TCH0qIeozGfEkHGOSZuaYJaI3GKjylsnjnwiFMRPmltSsPRbhpyBatvzhYeHco9NnZXSxp628cAZrx5EkInTUqOb7LXBNkECgZFtJDnt07mVyarrAGwGH4W37cKzlSi3";
 
 let waSocket = null; // general holder
+
+let lastQR = null;
+let connectionStatus = "idle";
 
 
 function checkApiKey(req, res, next) {
@@ -26,7 +30,7 @@ function checkApiKey(req, res, next) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    next(); 
+    next();
 }
 
 
@@ -76,7 +80,7 @@ app.post("/broadcast", checkApiKey, async (req, res) => {
         return res.status(400).json({ error: "Message required" });
     }
     try {
-        await broadcastToAllGroups(waSocket, message); 
+        await broadcastToAllGroups(waSocket, message);
         res.json({ message: "======= Broadcast sent" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -120,7 +124,7 @@ app.post("/broadcast-personal", checkApiKey, async (req, res) => {
 
     try {
         console.log(`📢 Starting personal broadcast to ${phoneNumber}`);
-        await broadcastToPersonals(waSocket, message, [phoneNumber]); 
+        await broadcastToPersonals(waSocket, message, [phoneNumber]);
         console.log(`✅ Personal broadcast completed to ${phoneNumber} at ${now}`);
         res.json({ message: `======= Broadcast sent to ${phoneNumber}` });
     } catch (err) {
@@ -128,6 +132,67 @@ app.post("/broadcast-personal", checkApiKey, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+//API WA SETUP
+
+app.get("/wa-status", checkApiKey, (req, res) => {
+    res.json({
+        status: connectionStatus,
+        hasQR: lastQR != null,
+        isConnected: connectionStatus === "open",
+        time: new Date()
+    });
+});
+
+app.get("/wa-qr", checkApiKey, async (req, res) => {
+    if (!lastQR) {
+        return res.status(404).json({ error: "QR not available" });
+    }
+
+    try {
+        const imgBase64 = await QRCode.toDataURL(lastQR);
+
+        res.json({
+            qr: lastQR,        
+            img_src: imgBase64       
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+
+});
+
+app.post("/wa-rescan", checkApiKey, async (req, res) => {
+    try {
+        if (!waSocket) {
+            return res.status(400).json({ error: "WA socket not initialized" });
+        }
+        
+        waSocket.ws.close();
+        waSocket = null;
+
+        await connectToWhatsApp();
+
+        res.json({ message: "🔁 QR regenerating..." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post("/wa-restart", checkApiKey, async (req, res) => {
+    const ok = await restartWhatsApp();
+    if (ok) {
+        res.json({ message: "🔄 WhatsApp restarted" });
+    } else {
+        res.status(500).json({ error: "Failed to restart WhatsApp" });
+    }
+});
+
+
+
+
+//END API WA SETUP
 
 
 
@@ -174,9 +239,13 @@ async function connectToWhatsApp() {
         const now = new Date();
 
         if (qr) {
+            lastQR = qr;
+
             console.log("🔳 QR code generated. Silakan scan:");
             qrcode.generate(qr, { small: true });
         }
+
+        connectionStatus = connection || "unknown";
 
         if (connection === "connecting") {
             console.log(now + " 📡 WhatsApp Connecting...");
@@ -200,7 +269,7 @@ async function connectToWhatsApp() {
 
             try {
                 const groups = await socket.groupFetchAllParticipating();
-               
+
                 const simplifiedGroups = [];
 
                 for (const id in groups) {
@@ -309,7 +378,7 @@ async function connectToWhatsApp() {
                     );
 
                 const cleanText = (pesan || "")
-                    .normalize("NFKD")                
+                    .normalize("NFKD")
                     .replace(/[^\p{L}\p{N}\s]/gu, "")
                     .toLowerCase();
 
@@ -439,9 +508,9 @@ async function handleMessage(socket, phone, chatId, pesan, message) {
         const sender = message.key.participant || message.key.remoteJid;
         const mentionId = sender.endsWith("@s.whatsapp.net") ? sender : chatId;
         const senderId = message.key.participant || message.key.remoteJid;
-        const senderName = message.pushName || senderId.split("@")[0]; 
+        const senderName = message.pushName || senderId.split("@")[0];
 
-        pesan = 'Nama penanya : ' + senderName + '  Pertanyaan : ' + pesan; 
+        pesan = 'Nama penanya : ' + senderName + '  Pertanyaan : ' + pesan;
 
         console.log(now + " 📤 Mengirim pesan ke C#...");
         let response = await sentToCSharp(pesan);
@@ -452,15 +521,15 @@ async function handleMessage(socket, phone, chatId, pesan, message) {
 
         console.log(now + " 📤 Target:", phone, "→", chatId);
 
-        
+
         const sendResult = await safeSend(
-            socket, 
-            phone, 
+            socket,
+            phone,
             {
                 text: response,
                 mentions: [mentionId]
-            }, 
-            { quoted: message } 
+            },
+            { quoted: message }
         );
         //------------------------------------------------
 
@@ -692,3 +761,23 @@ async function broadcastToPersonals(waSocket, messageText, phoneNumbers) {
     }
 })();
 
+//Start API SETUP
+async function restartWhatsApp() {
+    console.log("🔄 Restarting WhatsApp socket...");
+
+    try {
+        if (waSocket) {
+            waSocket.ws.close();
+            waSocket = null;
+        }
+
+        // optionally clear session
+        // fs.rmSync("session", { recursive: true, force: true });
+
+        await connectToWhatsApp();
+        return true;
+    } catch (err) {
+        console.error("❌ Failed restart WA:", err);
+        return false;
+    }
+}
