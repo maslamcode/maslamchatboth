@@ -15,12 +15,18 @@ const QRCode = require("qrcode");
 // ==== Express API ====
 const express = require("express");
 const multer = require("multer");
+
 const API_KEY = "TCH0qIeozGfEkHGOSZuaYJaI3GKjylsnjnwiFMRPmltSsPRbhpyBatvzhYeHco9NnZXSxp628cAZrx5EkInTUqOb7LXBNkECgZFtJDnt07mVyarrAGwGH4W37cKzlSi3";
 
-let waSocket = null; // general holder
+let waSocket = null;
+const sessionPath = path.resolve(__dirname, "session");
 
 let lastQR = null;
 let connectionStatus = "idle";
+
+const port = 90;
+
+const fullDomain = `http://172.104.163.223:${port}`;
 
 
 function checkApiKey(req, res, next) {
@@ -35,7 +41,6 @@ function checkApiKey(req, res, next) {
 
 
 const app = express();
-const port = 90;
 
 const uploadFolder = path.join(__dirname, "DataFiles");
 if (!fs.existsSync(uploadFolder)) {
@@ -145,23 +150,29 @@ app.get("/wa-status", checkApiKey, (req, res) => {
 });
 
 app.get("/wa-qr", checkApiKey, async (req, res) => {
+    if (connectionStatus === "open") {
+        return res.json({
+            message: "✅ WhatsApp is already connected. Please rescan if you need a new QR."
+        });
+    }
+
     if (!lastQR) {
-        return res.status(404).json({ error: "QR not available" });
+        return res.status(404).json({ error: "QR not available, please rescan." });
     }
 
     try {
         const imgBase64 = await QRCode.toDataURL(lastQR);
 
         res.json({
-            qr: lastQR,        
-            img_src: imgBase64       
+            qr: lastQR,
+            img_src: imgBase64
         });
 
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-
 });
+
 
 app.post("/wa-rescan", checkApiKey, async (req, res) => {
     try {
@@ -171,6 +182,20 @@ app.post("/wa-rescan", checkApiKey, async (req, res) => {
         
         waSocket.ws.close();
         waSocket = null;
+
+        const sessionPath = path.resolve(__dirname, "session");
+
+        if (fs.existsSync(sessionPath)) {
+            try {
+                fs.rmSync(sessionPath, { recursive: true, force: true });
+                console.log("✅ Session folder removed");
+            } catch (err) {
+                console.error("❌ Failed to remove session folder:", err);
+                return res.status(500).json({ error: "Failed to delete session folder" });
+            }
+        } else {
+            console.log("⚠️ Session folder does not exist");
+        }
 
         await connectToWhatsApp();
 
@@ -194,11 +219,8 @@ app.post("/wa-restart", checkApiKey, async (req, res) => {
 
 //END API WA SETUP
 
-
-
-
 app.listen(port, () => {
-    console.log(`📡 File API running at http://localhost:${port}`);
+    console.log(`📡 File API running at ${fullDomain}`);
 });
 
 function delay(ms) {
@@ -771,9 +793,6 @@ async function restartWhatsApp() {
             waSocket = null;
         }
 
-        // optionally clear session
-        // fs.rmSync("session", { recursive: true, force: true });
-
         await connectToWhatsApp();
         return true;
     } catch (err) {
@@ -781,3 +800,208 @@ async function restartWhatsApp() {
         return false;
     }
 }
+
+//UI SETUP
+let passwordSetup = "maslam-chatbot";
+
+app.get("/wa-status-proxy", async (req, res) => {
+    try {
+        const response = await fetch(`${fullDomain}/wa-status`, {
+            headers: { "x-api-key": API_KEY }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post("/wa-qr-proxy", async (req, res) => {
+    const { password } = req.body;
+    if (password !== passwordSetup) return res.status(401).json({ error: "Wrong password" });
+
+    try {
+        const response = await fetch(`${fullDomain}/wa-qr`, {
+            headers: { "x-api-key": API_KEY }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post("/wa-rescan-proxy", async (req, res) => {
+    const { password } = req.body;
+    if (password !== passwordSetup) return res.status(401).json({ error: "Wrong password" });
+
+    try {
+        const response = await fetch(`${fullDomain}/wa-rescan`, {
+            method: "POST",
+            headers: { "x-api-key": API_KEY }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post("/wa-restart-proxy", async (req, res) => {
+    const { password } = req.body;
+    if (password !== passwordSetup) return res.status(401).json({ error: "Wrong password" });
+
+    try {
+        const response = await fetch(`${fullDomain}/wa-restart`, {
+            method: "POST",
+            headers: { "x-api-key": API_KEY }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- UI page ---
+app.get("/wa-setup", (req, res) => {
+    res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WhatsApp Setup</title>
+<script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+<style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    button { margin: 5px 0; padding: 10px 15px; }
+    #qr-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); justify-content:center; align-items:center; }
+    #qr-modal-content { background: #fff; padding:20px; border-radius:5px; text-align:center; max-width:350px; }
+    #qr-modal img { max-width: 300px; margin:10px 0; }
+</style>
+</head>
+<body>
+
+<h1>WhatsApp API Setup</h1>
+
+<div id="status">
+    <strong>Status:</strong> <span id="connection-status">Loading...</span>
+</div>
+
+<button id="btn-show-qr">Show QR Code</button><br>
+<button id="btn-rescan">Rescan QR</button><br>
+<button id="btn-restart">Restart WhatsApp</button>
+
+<div id="qr-modal">
+    <div id="qr-modal-content">
+        <h3>Scan QR Code</h3>
+        <div id="qr-msg" style="margin-bottom: 10px; color: green;"></div>
+        <img id="qr-img" src="" alt="QR Code"/>
+        <br>
+        <button id="btn-close-qr">Close</button>
+    </div>
+</div>
+
+<script>
+let qrInterval = null;
+
+async function fetchStatus() {
+    $.get("/wa-status-proxy", function(res){
+        $("#connection-status").text(res.status + (res.isConnected ? " ✅" : " ❌"));
+        if(res.isConnected) stopQRInterval();
+    }).fail(function(err){
+        console.error(err);
+        $("#connection-status").text("Error fetching status");
+    });
+}
+
+async function fetchQR(password) {
+    return $.ajax({
+        url: "/wa-qr-proxy",
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ password }),
+        success: function(res){
+            if(res.img_src) {
+                $("#qr-img").show().attr("src", res.img_src);
+                $("#qr-msg").text("");
+            } else if(res.message) {
+                $("#qr-img").hide();
+                $("#qr-msg").text(res.message);
+            }
+        },
+        error: function(err){
+            console.error(err);
+            $("#qr-img").hide();
+            $("#qr-msg").text(err.responseJSON?.error || "Failed to fetch QR");
+        }
+    });
+}
+
+function startQRInterval(password) {
+    fetchQR(password);
+    if(qrInterval) clearInterval(qrInterval);
+    qrInterval = setInterval(() => fetchQR(password), 5000);
+}
+
+function stopQRInterval() {
+    if(qrInterval) clearInterval(qrInterval);
+}
+
+// --- Button actions ---
+$("#btn-show-qr").click(async () => {
+    const password = prompt("Enter setup password:");
+    if(!password) return;
+    $("#qr-modal").css("display", "flex");
+    startQRInterval(password);
+});
+
+$("#btn-close-qr").click(() => {
+    $("#qr-modal").hide();
+    stopQRInterval();
+});
+
+$("#btn-rescan").click(async () => {
+    const password = prompt("Enter setup password:");
+    if(!password) return;
+    $.ajax({
+        url: "/wa-rescan-proxy",
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ password }),
+        success: function(res){
+            alert(res.message);
+            fetchStatus();
+        },
+        error: function(err){
+            alert(err.responseJSON?.error || "Failed to rescan QR");
+        }
+    });
+});
+
+$("#btn-restart").click(async () => {
+    const password = prompt("Enter setup password:");
+    if(!password) return;
+    $.ajax({
+        url: "/wa-restart-proxy",
+        method: "POST",
+        contentType: "application/json",
+        data: JSON.stringify({ password }),
+        success: function(res){
+            alert(res.message);
+            fetchStatus();
+        },
+        error: function(err){
+            alert(err.responseJSON?.error || "Failed to restart WA");
+        }
+    });
+});
+
+// auto-refresh status every 10s
+setInterval(fetchStatus, 10000);
+</script>
+
+</body>
+</html>
+    `);
+});
