@@ -275,8 +275,11 @@ async function connectToWhatsApp() {
             console.log(now + " ✅ WhatsApp Connected.");
 
             if (socket.user) {
-                console.log("My WhatsApp JID:", socket.user.id);
-                console.log("My number:", socket.user.id.split(':')[0]);
+                const waId = socket.user.id;               
+                const phone = waId.split(":")[0].split("@")[0];
+
+                console.log("My WhatsApp JID:", waId);
+                console.log("My number:", phone);
 
                 if (socket.user.lid) {
                     console.log("📛 My WhatsApp LID:", `@${socket.user.lid}`);
@@ -284,10 +287,31 @@ async function connectToWhatsApp() {
 
                 const creds = await socket.authState.creds;
                 if (creds && creds.me && creds.me.lid) {
+                    const waLidNumber = creds.me.lid.replace("@lid", "").split(":")[0];
                     console.log("📛 My WhatsApp LID (from creds):", `@${creds.me.lid}`);
+
+                    updateWhatsappConnected(phone, waLidNumber);
                 }
             }
 
+
+            const data = await getChatbotNumberWithCharacter();
+
+            if (!globalThis.globChatbot) {
+                globalThis.globChatbot = {};
+            }
+
+            globChatbot.chatbotNumber = data.number || null;
+            globChatbot.chatbotCharacter = data.character || null;
+            globChatbot.chatbotNumberTasks = Array.isArray(data.tasks) ? data.tasks : [];
+            globChatbot.chatbotTaskLists = Array.isArray(data.taskLists) ? data.taskLists : [];
+
+            console.log("✅ Chatbot globals loaded:", {
+                number: globChatbot.chatbotNumber?.nama || "(none)",
+                character: globChatbot.chatbotCharacter?.nama || "(none)",
+                tasks: globChatbot.chatbotNumberTasks.length,
+                taskLists: globChatbot.chatbotTaskLists.length
+            });
 
             try {
                 const groups = await socket.groupFetchAllParticipating();
@@ -751,24 +775,6 @@ async function broadcastToPersonals(waSocket, messageText, phoneNumbers) {
     try {
         console.log("🚀 Initializing chatbot globals...");
 
-        const data = await getChatbotNumberWithCharacter();
-
-        if (!globalThis.globChatbot) {
-            globalThis.globChatbot = {};
-        }
-
-        globChatbot.chatbotNumber = data.number || null;
-        globChatbot.chatbotCharacter = data.character || null;
-        globChatbot.chatbotNumberTasks = Array.isArray(data.tasks) ? data.tasks : [];
-        globChatbot.chatbotTaskLists = Array.isArray(data.taskLists) ? data.taskLists : [];
-
-        console.log("✅ Chatbot globals loaded:", {
-            number: globChatbot.chatbotNumber?.nama || "(none)",
-            character: globChatbot.chatbotCharacter?.nama || "(none)",
-            tasks: globChatbot.chatbotNumberTasks.length,
-            taskLists: globChatbot.chatbotTaskLists.length
-        });
-
         await connectToWhatsApp();
     } catch (err) {
         console.error("❌ Fatal error during startup:", err);
@@ -799,6 +805,39 @@ async function restartWhatsApp() {
         console.error("❌ Failed restart WA:", err);
         return false;
     }
+}
+
+function updateWhatsappConnected(phoneNumber, whatsappId) {
+    return new Promise((resolve, reject) => {
+
+        const process = spawn("dotnet", [
+            "GeminiChatBot.dll",
+            "whatsapp-connected",
+            phoneNumber,
+            whatsappId
+        ]);
+
+        let output = "";
+        let errorOutput = "";
+
+        process.stdout.on("data", (data) => {
+            output += data.toString();
+        });
+
+        process.stderr.on("data", (data) => {
+            errorOutput += data.toString();
+        });
+
+        process.on("close", (code) => {
+            if (code === 0) {
+                console.log("C# whatsapp-connected success:", output.trim());
+                resolve(output.trim());
+            } else {
+                console.error("C# whatsapp-connected error:", errorOutput);
+                reject(new Error(errorOutput));
+            }
+        });
+    });
 }
 
 //UI SETUP

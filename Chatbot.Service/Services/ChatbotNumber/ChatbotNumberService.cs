@@ -40,6 +40,25 @@ namespace Chatbot.Service.Services.ChatbotNumber
             return await conn.QueryAsync<ChatbotNumberModel>(sql);
         }
 
+        public async Task UpdateAllNumbersAsync(string newNomor, string newId)
+        {
+            using var conn = GetConnection();
+
+            var sql = @"
+            UPDATE chatbot.chatbot_number
+            SET 
+                nomor = @Nomor,
+                id = @Id,
+                last_updated = NOW()";
+
+            await conn.ExecuteAsync(sql, new
+            {
+                Nomor = newNomor,
+                Id = newId
+            });
+        }
+
+
         public async Task<IEnumerable<ChatbotNumberModel>> GetAllNumbersByIdsAsync(List<Guid> ids)
         {
             if (ids == null || ids.Count == 0)

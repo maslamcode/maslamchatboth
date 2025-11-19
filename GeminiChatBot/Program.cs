@@ -115,6 +115,36 @@ class Program
                     Console.WriteLine($"__JSON_START__{json}__JSON_END__");
 
                 }
+                else if (args[0].Equals("whatsapp-connected", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (args.Length < 3)
+                    {
+                        Console.WriteLine("Missing parameters: whatsapp-connected <phoneNumber> <whatsappId>");
+                        return;
+                    }
+
+                    string phoneNumber = args[1];
+                    string whatsappId = args[2];
+
+                    var config = new ConfigurationBuilder()
+                        .AddJsonFile("appsettings.json")
+                        .Build();
+
+                    var numberService = new ChatbotNumberService(config);
+
+                    var numbers = await numberService.GetAllNumbersAsync();
+
+                    if (numbers == null || !numbers.Any())
+                    {
+                        Console.WriteLine("No chatbot numbers found to update.");
+                        return;
+                    }
+
+                    await numberService.UpdateAllNumbersAsync(phoneNumber, whatsappId);
+
+                    Console.WriteLine($"Updated Nomor  : {phoneNumber}");
+                    Console.WriteLine($"Updated WA ID  : {whatsappId}");
+                }
                 else
                 {
                     string prompt = args[0];
