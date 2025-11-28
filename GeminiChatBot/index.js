@@ -420,6 +420,8 @@ async function connectToWhatsApp(forceRestart = false) {
             socket.ev.on("messages.upsert", async ({ messages }) => {
                 const now = new Date();
 
+                console.log(`!--------------------------------messages:-------------`, messages)
+
                 try {
                     const message = messages[0];
                     if (!message.message) return;
@@ -462,6 +464,9 @@ async function connectToWhatsApp(forceRestart = false) {
                         //    "maslam",
                         //];
 
+                        //console.log(`globChatbot###################`, globChatbot);
+                        console.log(`globChatbot.chatbotTaskLists###################`, globChatbot.chatbotTaskLists.length);
+
                         const keywords = globChatbot.chatbotTaskLists
                             .map(t => t.task_list)
                             .filter(Boolean)
@@ -470,6 +475,8 @@ async function connectToWhatsApp(forceRestart = false) {
                                     .map(k => k.trim().toLowerCase())
                                     .filter(k => k.length > 0)
                             );
+
+                        //console.log(`keywords.keywords###################`, globChatbot.chatbotTaskLists);
 
                         const cleanText = (pesan || "")
                             .normalize("NFKD")
@@ -853,21 +860,26 @@ function getPesan(message) {
 
     //Start API SETUP
     async function restartWhatsApp() {
-        console.log("🔄 Restarting WhatsApp socket...");
+        console.log("🔄 Full app restart requested...");
 
         try {
             if (waSocket) {
-                waSocket.ws.close();
-                waSocket = null;
+                try { waSocket.end?.(); } catch { }
+                try { waSocket.ws?.close(); } catch { }
             }
 
-            await connectToWhatsApp(false);
-            return true;
+            // Give it a moment to close
+            await new Promise(res => setTimeout(res, 500));
+
+            console.log("🛑 Exiting process...");
+            process.exit(0);
+
         } catch (err) {
-            console.error("❌ Failed restart WA:", err);
-            return false;
+            console.error("❌ Error while restarting:", err);
+            process.exit(1);
         }
     }
+
 
     function updateWhatsappConnected(phoneNumber, whatsappId) {
         return new Promise((resolve, reject) => {
